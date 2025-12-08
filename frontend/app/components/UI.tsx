@@ -4,9 +4,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, HTMLMotionProps, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Icon } from './Icon';
 
-// ══════════════════════════════════════════════════════════════════════════
-// SPECTACULAR PRELOADER
-// ══════════════════════════════════════════════════════════════════════════
+
 export const Preloader: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
     const [count, setCount] = useState(0);
     const [phase, setPhase] = useState<'loading' | 'ready'>('loading');
@@ -97,9 +95,7 @@ export const Preloader: React.FC<{ onComplete: () => void }> = ({ onComplete }) 
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// GLITCH TEXT EFFECT
-// ══════════════════════════════════════════════════════════════════════════
+
 export const GlitchText: React.FC<{ text: string; className?: string }> = ({ text, className = "" }) => {
     const [displayText, setDisplayText] = useState(text);
     const [isGlitching, setIsGlitching] = useState(true);
@@ -134,9 +130,7 @@ export const GlitchText: React.FC<{ text: string; className?: string }> = ({ tex
     return <span className={className}>{displayText}</span>;
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// 3D TILT CARD
-// ══════════════════════════════════════════════════════════════════════════
+
 interface TiltCardProps extends HTMLMotionProps<"div"> {
     children: React.ReactNode;
     className?: string;
@@ -193,9 +187,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// PREMIUM CARD 
-// ══════════════════════════════════════════════════════════════════════════
+
 interface CardProps extends HTMLMotionProps<"div"> {
     children: React.ReactNode;
     className?: string;
@@ -237,9 +229,7 @@ export const Card: React.FC<CardProps> = ({
     return content;
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// MAGNETIC BUTTON
-// ══════════════════════════════════════════════════════════════════════════
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
     size?: 'sm' | 'md' | 'lg';
@@ -307,9 +297,7 @@ export const Button: React.FC<ButtonProps> = ({
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// ANIMATED BADGE
-// ══════════════════════════════════════════════════════════════════════════
+
 interface BadgeProps {
     text: string;
     variant?: 'red' | 'purple' | 'cyan' | 'neutral';
@@ -349,9 +337,7 @@ export const Badge: React.FC<BadgeProps> = ({ text, variant = 'neutral', pulse =
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// MODAL
-// ══════════════════════════════════════════════════════════════════════════
+
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: React.ReactNode; title?: string }> = ({ isOpen, onClose, children, title }) => {
     return (
         <AnimatePresence>
@@ -388,9 +374,7 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; children: R
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// PAGE TRANSITION
-// ══════════════════════════════════════════════════════════════════════════
+
 export const PageTransition: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <motion.div
         initial={{ opacity: 0 }}
@@ -403,9 +387,7 @@ export const PageTransition: React.FC<{ children: React.ReactNode }> = ({ childr
     </motion.div>
 );
 
-// ══════════════════════════════════════════════════════════════════════════
-// ANIMATED COUNTER
-// ══════════════════════════════════════════════════════════════════════════
+
 export const AnimatedCounter: React.FC<{ value: number; suffix?: string; className?: string }> = ({ value, suffix = '', className = '' }) => {
     const [displayValue, setDisplayValue] = useState(0);
 

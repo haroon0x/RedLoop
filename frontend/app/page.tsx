@@ -6,74 +6,111 @@ import Link from 'next/link';
 import { Icon } from './components/Icon';
 import { Button, Card, Badge, PageTransition, GlitchText, Modal, AnimatedCounter } from './components/UI';
 
-// ══════════════════════════════════════════════════════════════════════════
-// THE INFINITY LOOP (Keep as user liked it)
-// ══════════════════════════════════════════════════════════════════════════
+
 const InfinityLoop = () => {
     return (
-        <div className="relative w-full max-w-5xl mx-auto h-[400px] flex items-center justify-center">
+        <div className="relative w-full max-w-5xl mx-auto h-[500px] flex items-center justify-center" style={{ perspective: '1000px' }}>
             <div className="absolute inset-0 bg-gradient-radial from-[#ff2d55]/10 via-transparent to-transparent blur-3xl" />
 
-            <svg viewBox="0 0 800 300" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full relative z-10">
-                <defs>
-                    <linearGradient id="loopGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#ff2d55" />
-                        <stop offset="50%" stopColor="#8b5cf6" />
-                        <stop offset="100%" stopColor="#06b6d4" />
-                    </linearGradient>
-                    <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur stdDeviation="4" result="blur" />
-                        <feMerge>
-                            <feMergeNode in="blur" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-                </defs>
+            {/* 3D Container with tilt */}
+            <motion.div
+                className="relative w-full h-full"
+                style={{ transformStyle: 'preserve-3d' }}
+                animate={{ rotateX: [0, 5, 0, -5, 0] }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            >
+                {/* Team Labels */}
+                <div className="absolute top-1/2 -translate-y-1/2 left-0 z-20 text-left">
+                    <div className="font-mono text-xs text-[#ff2d55] tracking-widest mb-1">RED TEAM</div>
+                    <div className="font-serif italic text-2xl text-white">Adversary</div>
+                    <p className="text-[#a0a0b0] text-xs mt-2 max-w-[120px]">Attacks your code before hackers do</p>
+                </div>
 
-                <path
-                    d="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
-                    stroke="rgba(255,255,255,0.1)"
-                    strokeWidth="1"
-                    fill="none"
-                />
+                <div className="absolute top-1/2 -translate-y-1/2 right-0 z-20 text-right">
+                    <div className="font-mono text-xs text-[#06b6d4] tracking-widest mb-1">BLUE TEAM</div>
+                    <div className="font-serif italic text-2xl text-white">Defender</div>
+                    <p className="text-[#a0a0b0] text-xs mt-2 max-w-[120px] ml-auto">Auto-patches vulnerabilities</p>
+                </div>
 
-                <motion.path
-                    d="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
-                    stroke="url(#loopGrad2)"
-                    strokeWidth="4"
-                    fill="none"
-                    strokeLinecap="round"
-                    filter="url(#glow2)"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    whileInView={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 2, ease: "easeInOut" }}
-                />
+                <svg viewBox="0 0 800 300" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full relative z-10">
+                    <defs>
+                        <linearGradient id="loopGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#ff2d55" />
+                            <stop offset="50%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#06b6d4" />
+                        </linearGradient>
+                        <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur stdDeviation="6" result="blur" />
+                            <feMerge>
+                                <feMergeNode in="blur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                        {/* 3D Shadow */}
+                        <filter id="shadow3d" x="-50%" y="-50%" width="200%" height="200%">
+                            <feDropShadow dx="0" dy="20" stdDeviation="10" floodColor="#ff2d55" floodOpacity="0.3" />
+                        </filter>
+                    </defs>
 
-                {/* Evolving Particles */}
-                {[0, 0.33, 0.66].map((offset, i) => (
-                    <motion.circle
-                        key={i}
-                        r={6}
-                        fill={i === 0 ? "#ff2d55" : i === 1 ? "#8b5cf6" : "#06b6d4"}
+                    {/* Shadow Layer for 3D depth */}
+                    <path
+                        d="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
+                        stroke="rgba(255,45,85,0.1)"
+                        strokeWidth="8"
+                        fill="none"
+                        transform="translate(0, 15)"
+                    />
+
+                    {/* Background track */}
+                    <path
+                        d="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
+                        stroke="rgba(255,255,255,0.08)"
+                        strokeWidth="2"
+                        fill="none"
+                    />
+
+                    {/* Main animated path */}
+                    <motion.path
+                        d="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
+                        stroke="url(#loopGrad2)"
+                        strokeWidth="5"
+                        fill="none"
+                        strokeLinecap="round"
                         filter="url(#glow2)"
-                    >
-                        <animateMotion
-                            dur="6s"
-                            repeatCount="indefinite"
-                            path="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
-                            keyPoints={`${offset};${(offset + 1) % 1}`}
-                            keyTimes="0;1"
-                        />
-                    </motion.circle>
-                ))}
-            </svg>
+                        initial={{ pathLength: 0, opacity: 0 }}
+                        whileInView={{ pathLength: 1, opacity: 1 }}
+                        transition={{ duration: 2, ease: "easeInOut" }}
+                    />
+
+                    {/* Evolving Particles */}
+                    {[0, 0.33, 0.66].map((offset, i) => (
+                        <motion.circle
+                            key={i}
+                            r={8}
+                            fill={i === 0 ? "#ff2d55" : i === 1 ? "#8b5cf6" : "#06b6d4"}
+                            filter="url(#glow2)"
+                        >
+                            <animateMotion
+                                dur="6s"
+                                repeatCount="indefinite"
+                                path="M100,150 C100,50 250,50 400,150 C550,250 700,250 700,150 C700,50 550,50 400,150 C250,250 100,250 100,150"
+                                keyPoints={`${offset};${(offset + 1) % 1}`}
+                                keyTimes="0;1"
+                            />
+                        </motion.circle>
+                    ))}
+                </svg>
+            </motion.div>
+
+            {/* Center connection label */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20">
+                <div className="font-mono text-[10px] text-[#a0a0b0] tracking-[0.3em] text-center">CONTINUOUS FEEDBACK LOOP</div>
+            </div>
         </div>
     );
 };
 
-// ══════════════════════════════════════════════════════════════════════════
-// PAGE COMPONENT
-// ══════════════════════════════════════════════════════════════════════════
+
 export default function Landing() {
     const { scrollY } = useScroll();
     const y1 = useTransform(scrollY, [0, 500], [0, 200]);
@@ -88,35 +125,72 @@ export default function Landing() {
                 <div className="bg-noise opacity-50" />
                 <div className="bg-grid opacity-30" />
 
-                {/* ════════════════════════════════════════════════════════════════════
-           UNIQUE ASYMMETRIC NAVIGATION
-           ════════════════════════════════════════════════════════════════════ */}
-                <nav className="fixed top-0 w-full z-50 px-6 py-6 mix-blend-difference text-white">
-                    <div className="max-w-[1800px] mx-auto flex justify-between items-center">
-                        <Link href="/" className="group flex items-center gap-2">
-                            <div className="w-3 h-3 bg-white rounded-full group-hover:scale-150 transition-transform duration-500" />
-                            <span className="font-display font-bold tracking-tighter text-xl">REDLOOP</span>
-                        </Link>
 
-                        <div className="hidden md:flex gap-12 font-mono text-xs uppercase tracking-widest">
-                            <a href="#vision" className="hover:line-through decoration-[#ff2d55]">Vision</a>
-                            <a href="#capabilities" className="hover:line-through decoration-[#ff2d55]">Capabilities</a>
-                            <a href="#system" className="hover:line-through decoration-[#ff2d55]">System</a>
+                <motion.nav
+                    initial={{ y: -100 }}
+                    animate={{ y: 0 }}
+                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                    className="fixed top-6 left-0 right-0 z-50 flex justify-center px-4"
+                >
+                    <div className="w-full max-w-[1400px] neo-glass rounded-2xl flex items-center justify-between p-2">
+                        {/* 1. Identity Module */}
+                        <div className="flex items-center gap-4 px-6 py-2 border-r border-white/5">
+                            <Link href="/" className="group flex items-center gap-3">
+                                <div className="relative w-8 h-8 flex items-center justify-center bg-white/5 rounded-lg border border-white/10 overflow-hidden group-hover:border-[#ff2d55]/50 transition-colors">
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-[#ff2d55] to-transparent opacity-0 group-hover:opacity-20 transition-opacity" />
+                                    <span className="font-display font-bold text-[#ff2d55]">R</span>
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="font-display font-bold tracking-tight text-sm leading-none">REDLOOP</span>
+                                    <span className="font-mono text-[9px] text-[#505060] tracking-widest uppercase">Defense Protocol</span>
+                                </div>
+                            </Link>
                         </div>
 
-                        <Link href="/dashboard">
-                            <button className="font-mono text-xs uppercase hover:bg-white hover:text-black px-4 py-2 border border-white transition-colors">
-                                [ Enter Console ]
-                            </button>
-                        </Link>
-                    </div>
-                </nav>
+                        {/* 2. Navigation Module */}
+                        <div className="hidden md:flex items-center bg-white/5 rounded-xl px-1 py-1 gap-1 border border-white/5">
+                            {[
+                                { name: 'Vision', href: '#vision', i: '01' },
+                                { name: 'Capabilities', href: '#capabilities', i: '02' },
+                                { name: 'System', href: '#system', i: '03' }
+                            ].map((item) => (
+                                <a
+                                    key={item.name}
+                                    href={item.href}
+                                    className="px-5 py-2 rounded-lg hover:bg-white/5 transition-all flex items-center gap-2 group relative overflow-hidden"
+                                >
+                                    <span className="font-mono text-[9px] text-[#505060] group-hover:text-[#ff2d55] transition-colors">{item.i}</span>
+                                    <span className="font-sans text-xs font-medium tracking-wide text-[#a0a0b0] group-hover:text-white transition-colors uppercase">{item.name}</span>
+                                </a>
+                            ))}
+                        </div>
 
-                {/* ════════════════════════════════════════════════════════════════════
-           "THE SPLIT" HERO SECTION
-           Fundamentally cooler and unique layout
-           ════════════════════════════════════════════════════════════════════ */}
+                        {/* 3. Status & Action Module */}
+                        <div className="flex items-center gap-4 pl-6 border-l border-white/5">
+                            <div className="hidden lg:flex flex-col items-end mr-4">
+                                <span className="font-mono text-[9px] text-[#505060]">v2.4.0-stable</span>
+                            </div>
+
+                            <Link href="/dashboard">
+                                <button className="relative group overflow-hidden px-5 py-2.5 rounded-xl bg-white text-black font-semibold text-xs tracking-wide uppercase transition-transform active:scale-95">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-[#ff2d55] to-[#ff2d55] opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                    <span className="relative z-10 group-hover:text-white transition-colors flex items-center gap-2">
+                                        <span>Console</span>
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="opacity-60 group-hover:opacity-100 transition-opacity">
+                                            <path d="M1 9L9 1M9 1H3M9 1V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    </span>
+                                </button>
+                            </Link>
+                        </div>
+                    </div>
+                </motion.nav>
+
+
                 <section className="relative min-h-screen flex flex-col justify-center px-6 overflow-hidden pt-20">
+                    {/* Hero Noise Mask */}
+                    <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none z-[5]" />
+
                     {/* Background Typography */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-5 select-none overflow-hidden">
                         <motion.div style={{ rotate }} className="relative w-[200vw] h-[200vw]">
@@ -130,6 +204,10 @@ export default function Landing() {
                             </svg>
                         </motion.div>
                     </div>
+
+                    {/* Enhanced Background Orbs */}
+                    <div className="absolute top-[20%] right-[10%] w-[600px] h-[600px] bg-[#ff2d55]/30 rounded-full blur-[120px] pointer-events-none mix-blend-screen" />
+                    <div className="absolute bottom-[10%] left-[5%] w-[500px] h-[500px] bg-[#8b5cf6]/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen" />
 
                     <div className="max-w-[1600px] mx-auto w-full grid lg:grid-cols-2 gap-12 items-center relative z-10">
                         {/* Left: The Statement */}
@@ -180,7 +258,7 @@ export default function Landing() {
 
                             <motion.div
                                 style={{ y: y2 }}
-                                className="absolute top-10 right-10 w-64 h-80 border border-white/10 glass rounded-lg p-6 z-20 backdrop-blur-xl"
+                                className="absolute top-10 right-10 w-64 h-80 neo-glass rounded-lg p-6 z-20"
                             >
                                 <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
                                     <div className="font-mono text-xs text-[#ff2d55]">ATTACK_VECTOR.EXE</div>
@@ -212,9 +290,7 @@ export default function Landing() {
                     </div>
                 </section>
 
-                {/* ════════════════════════════════════════════════════════════════════
-           THE LOOP SECTION (PRESERVED)
-           ════════════════════════════════════════════════════════════════════ */}
+
                 <section className="py-24 border-y border-white/5 bg-black/40">
                     <div className="max-w-[1600px] mx-auto text-center px-6">
                         <h2 className="font-display font-medium text-sm tracking-[0.2em] text-[#a0a0b0] mb-8">THE INFINITE LOOP</h2>
@@ -222,10 +298,7 @@ export default function Landing() {
                     </div>
                 </section>
 
-                {/* ════════════════════════════════════════════════════════════════════
-           CAPABILITIES - REVERTED TO BENTO GRID (AS REQUESTED)
-           Using the new design system styles but the old layout
-           ════════════════════════════════════════════════════════════════════ */}
+
                 <section className="py-32 px-6" id="capabilities">
                     <div className="max-w-[1600px] mx-auto">
                         <div className="mb-20 flex flex-col md:flex-row justify-between items-end gap-8">
@@ -310,9 +383,7 @@ export default function Landing() {
                     </div>
                 </section>
 
-                {/* ════════════════════════════════════════════════════════════════════
-           FOOTER
-           ════════════════════════════════════════════════════════════════════ */}
+
                 <footer className="py-20 px-6 border-t border-white/5 bg-[#050508]">
                     <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-end gap-12">
                         <div>
@@ -326,9 +397,7 @@ export default function Landing() {
                     </div>
                 </footer>
 
-                {/* ════════════════════════════════════════════════════════════════════
-           MANIFESTO MODAL
-           ════════════════════════════════════════════════════════════════════ */}
+
                 <Modal isOpen={isManifestoOpen} onClose={() => setIsManifestoOpen(false)} title="THE MANIFESTO">
                     <div className="prose prose-invert">
                         <p className="font-serif italic text-2xl text-white mb-6">"Security is not a wall. It is an immune system."</p>
