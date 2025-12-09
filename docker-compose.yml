@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  kestra:
+    image: kestra/kestra:latest
+    container_name: redloop-kestra
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - KESTRA_CONFIGURATION=/app/kestra/application.yml
+    volumes:
+      - kestra-data:/app/storage
+      - ./kestra:/app/kestra:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: redloop-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - KESTRA_URL=http://kestra:8080
+    volumes:
+      - ./backend/app:/app/app:ro
+      - ./prompts:/app/prompts:ro
+    depends_on:
+      kestra:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: redloop-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_KESTRA_URL=http://localhost:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kestra-data:
+
+networks:
+  default:
+    name: redloop-network

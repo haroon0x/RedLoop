@@ -230,7 +230,8 @@ export const Card: React.FC<CardProps> = ({
 };
 
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
+    children: React.ReactNode;
     variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
     size?: 'sm' | 'md' | 'lg';
     icon?: React.ReactNode;
