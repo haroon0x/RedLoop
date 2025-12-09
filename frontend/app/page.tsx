@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import React, { useState } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import { Icon } from './components/Icon';
-import { Button, Card, Badge, PageTransition, GlitchText, Modal, AnimatedCounter } from './components/UI';
+import { Button, Card, Badge, PageTransition, Modal } from './components/UI';
 
 
 const InfinityLoop = () => {
@@ -400,7 +400,7 @@ export default function Landing() {
 
                 <Modal isOpen={isManifestoOpen} onClose={() => setIsManifestoOpen(false)} title="THE MANIFESTO">
                     <div className="prose prose-invert">
-                        <p className="font-serif italic text-2xl text-white mb-6">"Security is not a wall. It is an immune system."</p>
+                        <p className="font-serif italic text-2xl text-white mb-6">&quot;Security is not a wall. It is an immune system.&quot;</p>
                         <div className="space-y-4 text-[#a0a0b0] text-sm leading-relaxed">
                             <p>For too long, cybersecurity has been reactive. We build walls, and hackers build taller ladders. It is a losing game.</p>
                             <p><span className="text-[#ff2d55]">RedLoop</span> fundamentally changes the physics of this conflict. Instead of waiting for an attack, we attack ourselves. Continuously. Relentlessly.</p>
