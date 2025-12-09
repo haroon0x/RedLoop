@@ -5,15 +5,24 @@ import shutil
 class Utils:
     @staticmethod
     def get_cline_path() -> str:
+        if sys.platform == "win32":
+            raise RuntimeError(
+                "Cline CLI is not supported on Windows. "
+                "Please use Linux or macOS to run RedLoop."
+            )
+        
         path = shutil.which("cline")
         if path:
             return path
-            
-        cmd = ["which", "cline"] if sys.platform != "win32" else ["where", "cline"]
+        
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(
+                ["which", "cline"],
+                capture_output=True,
+                text=True
+            )
             if result.returncode == 0:
-                return result.stdout.strip().split('\n')[0]
+                return result.stdout.strip()
         except Exception:
             pass
             
