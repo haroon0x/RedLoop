@@ -1,4 +1,7 @@
-# ⭕ Project RedLoop: Adversarial DevSecOps Autopilot
+# ⭕ RedLoop: Adversarial DevSecOps Autopilot
+
+[![CI](https://github.com/haroon0x/RedLoop/actions/workflows/ci.yml/badge.svg)](https://github.com/haroon0x/RedLoop/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 > **Mission**: The first **Zero-Cost** adversarial AI security agent that attacks your code before hackers do.
 
@@ -6,19 +9,22 @@
 
 RedLoop is an autonomous DevSecOps agent that operates on a "Security-Through-Attack" principle. Instead of just scanning code for vulnerabilities, it **actively exploits them** in a safe environment to prove risk, and then automatically fixes them.
 
-It combines:
-- 🔴 **Red Team**: An Adversary Agent (powered by Gemini 2.5 Pro / Ollama) that generates novel attack payloads.
-- 🔵 **Blue Team**: A Defender Agent (Cline CLI) that patches vulnerabilities.
-- 🔄 **The Loop**: Orchestrated by Kestra to run on every Pull Request.
-
-## 🚀 Features
-
-- **Adversarial Testing**: RAG-augmented generation of SQLi, XSS, and Logic exploits.
-- **Zero-Cost Architecture**: Runs entirely on Free Tier APIs or Local Compute.
-- **Attack Replay**: Watch an animated replay of exactly how your code was broken.
-- **Security Genome**: Tracks your codebase's immunity over time.
+- 🔴 **Red Team**: An Adversary Agent (powered by Gemini 2.5 Pro / Cline) that generates novel attack payloads
+- 🔵 **Blue Team**: A Defender Agent that patches vulnerabilities
+- 🔄 **The Loop**: Continuous feedback cycle on every Pull Request
 
 ## 🏗️ Architecture
+
+```
+├── backend/          # FastAPI Python Backend (uv)
+│   └── app/
+│       ├── core/     # Adversary & Defender agents
+│       ├── api/      # REST endpoints
+│       └── models/   # Pydantic schemas
+├── frontend/         # Next.js Dashboard
+├── data/             # Attack vectors database
+└── prompts/          # Agent system prompts
+```
 
 ```mermaid
 graph TD
@@ -31,26 +37,28 @@ graph TD
     D -->|No| H[Pass & Update Metrics]
 ```
 
-## 🛠️ Usage
+## 🚀 Quick Start
 
-1. **Install Dependencies** (using [uv](https://docs.astral.sh/uv/)):
-   ```bash
-   uv sync
-   ```
+### Backend
+```bash
+cd backend
+uv sync
+uv run uvicorn app.main:app --reload
+```
 
-2. **Set up Environment**:
-   ```bash
-   cp .env.example .env
-   # Add GEMINI_API_KEY if using cloud mode
-   ```
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-3. **Run Adversary Test**:
-   ```bash
-   python scripts/test_adversary.py
-   ```
+### API Endpoints
+- `GET /api/health` - Health check
+- `POST /api/scan` - Run security scan
+- `POST /api/fix` - Generate patches
 
-## 🏆 Hackathon Tracks
-Built for **AI Agents Assemble 2024**.
-- **Infinity Gauntlet** (Cline)
-- **Wakanda Data** (Kestra)
-- **Stormbreaker** (Vercel)
+
+## 📄 License
+
+Apache 2.0 - See [LICENSE](LICENSE)
