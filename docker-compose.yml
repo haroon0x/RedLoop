@@ -2,25 +2,32 @@ services:
   kestra:
     image: kestra/kestra:latest
     container_name: redloop-kestra
-    command: server local
+    command: server local --flow-path=/app/flows
     user: root
     ports:
       - "8080:8080"
       - "8081:8081"
     env_file:
       - .env_encoded
+    environment:
+      - KESTRA_CONFIGURATION_PATH=/app/confs/application.yaml
+      - MICRONAUT_SECURITY_ENABLED=false
+      - KESTRA_SERVER_BASIC_AUTH_ENABLED=false
+      - KESTRA_SERVER_PREVIEW_ENABLED=true
     volumes:
       - kestra-data:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/kestra-wd:/tmp/kestra-wd
       - ./kestra/application.yaml:/app/confs/application.yaml:ro
+      - ./kestra/flows:/app/flows:ro
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:25015/health" ]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s
+    # healthcheck disabled - Kestra health endpoint returns 401
+    # healthcheck:
+    #   test: [ "CMD", "curl", "-f", "http://localhost:8080/api/v1/health" ]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 10
+    #   start_period: 120s
 
   backend:
     build:
@@ -36,11 +43,10 @@ services:
       - ./backend/app:/app/app:ro
       - ./prompts:/app/prompts:ro
     depends_on:
-      kestra:
-        condition: service_healthy
+      - kestra
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -49,13 +55,18 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: redloop-frontend
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_KESTRA_URL=http://localhost:8080
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
     depends_on:
       backend:
         condition: service_healthy

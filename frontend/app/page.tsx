@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import Link from 'next/link';
 import { Icon } from './components/Icon';
 import { Button, Card, Badge, PageTransition, Modal } from './components/UI';
+import ServerStatus from './components/ServerStatus';
 
 
 const InfinityLoop = () => {
@@ -216,9 +217,8 @@ export default function Landing() {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
                         >
-                            <div className="flex items-center gap-4 mb-8">
-                                <span className="w-12 h-[1px] bg-[#ff2d55]"></span>
-                                <span className="font-mono text-[#ff2d55] text-xs">SYS.STATUS: ONLINE</span>
+                            <div className="mb-4">
+                                <ServerStatus />
                             </div>
 
                             <h1 className="font-serif italic text-7xl md:text-9xl mb-4 leading-[0.9]">

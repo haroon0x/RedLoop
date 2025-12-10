@@ -1,0 +1,265 @@
+id: redloop_orchestrator_v1
+namespace: redloop.security
+
+description: |
+  RedLoop Security Assessment - AI-Powered Vulnerability Scanner
+  Streams progress, logs, and AI outputs via webhooks for real-time UI
+
+labels:
+  project: redloop
+  type: security-scan
+  version: v1
+
+triggers:
+  - id: webhook
+    type: io.kestra.plugin.core.trigger.Webhook
+    key: "redloop_secret"
+
+inputs:
+  - id: repository_url
+    type: STRING
+    description: "GitHub repository URL to analyze"
+    defaults: "https://github.com/kestra-io/scripts"
+  
+  - id: branch
+    type: STRING
+    defaults: "main"
+    description: "Branch to analyze"
+
+  - id: backend_url
+    type: STRING
+    defaults: "http://redloop-backend:8000"
+    description: "Backend URL for webhooks"
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NOTIFY: Execution Started
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_start
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "start", "status": "RUNNING", "message": "🚀 Starting scan for {{ inputs.repository_url }} ({{ inputs.branch }})"}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CLONE REPOSITORY
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: clone_and_scan
+    type: io.kestra.plugin.core.flow.WorkingDirectory
+    tasks:
+      - id: clone_repository
+        type: io.kestra.plugin.git.Clone
+        url: "{{ inputs.repository_url }}"
+        branch: "{{ inputs.branch }}"
+        timeout: PT2M
+
+      - id: read_code
+        type: io.kestra.plugin.scripts.shell.Commands
+        timeout: PT1M
+        commands:
+          - |
+            FILE_COUNT=$(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.java" -o -name "*.go" \) | grep -v node_modules | grep -v .git | wc -l)
+            echo "Found $FILE_COUNT code files"
+            for f in $(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.java" -o -name "*.go" \) | grep -v node_modules | grep -v .git | head -20); do
+              echo "=== FILE: $f ==="
+              head -150 "$f"
+              echo ""
+            done > code_content.txt
+            echo "Prepared $FILE_COUNT files for analysis"
+        outputFiles:
+          - code_content.txt
+
+  - id: notify_clone_done
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "clone_repository", "status": "SUCCESS", "message": "📥 Repository cloned successfully"}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # ADVERSARY AI AGENT
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_adversary_start
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "adversary_kestra", "status": "RUNNING", "message": "🔴 Adversary AI scanning for vulnerabilities..."}
+
+  - id: adversary_kestra
+    type: io.kestra.plugin.ai.agent.AIAgent
+    description: "Vulnerability Scanner"
+    timeout: PT5M
+    retry:
+      type: constant
+      maxAttempt: 2
+      interval: PT15S
+    provider:
+      type: io.kestra.plugin.ai.provider.GoogleGemini
+      apiKey: "{{ secret('GEMINI_API_KEY') }}"
+      modelName: gemini-2.5-flash
+    prompt: |
+      Analyze this code for security vulnerabilities:
+      
+      {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
+      
+      Find: SQL injection, XSS, RCE, auth bypass, path traversal, hardcoded secrets.
+      
+      Output JSON:
+      {"vulnerabilities": [{"id": "VULN-001", "type": "...", "severity": "CRITICAL|HIGH|MEDIUM|LOW", "file": "...", "description": "...", "fix": "..."}], "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0}, "recommendation": "BLOCK or PASS"}
+    systemMessage: You are ADVERSARY, a red team security researcher. Find vulnerabilities. Output valid JSON only.
+
+  - id: notify_adversary_done
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "adversary_kestra", "status": "SUCCESS", "message": "🔴 Adversary scan complete - found vulnerabilities"}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUMMARIZER AI AGENT
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_summarizer_start
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "summarizer_agent", "status": "RUNNING", "message": "📋 Analyzing findings and calculating risk score..."}
+
+  - id: summarizer_agent
+    type: io.kestra.plugin.ai.agent.AIAgent
+    description: "Risk Assessment"
+    timeout: PT3M
+    retry:
+      type: constant
+      maxAttempt: 2
+      interval: PT15S
+    provider:
+      type: io.kestra.plugin.ai.provider.GoogleGemini
+      apiKey: "{{ secret('GEMINI_API_KEY') }}"
+      modelName: gemini-2.5-flash
+    prompt: |
+      Analyze vulnerability report and make deployment decision:
+      
+      FINDINGS:
+      {{ outputs.adversary_kestra.textOutput | default('No vulnerabilities found') }}
+      
+      Output JSON:
+      {"summary": "2-3 sentence executive summary", "risk_score": 7, "decision": "BLOCK or PASS", "vulnerability_counts": {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}}
+      
+      BLOCK if any CRITICAL or 3+ HIGH, PASS otherwise.
+    systemMessage: Be decisive. Always include BLOCK or PASS. Output valid JSON only.
+
+  - id: notify_summarizer_done
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "summarizer_agent", "status": "SUCCESS", "message": "📋 Risk assessment complete"}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DEFENDER AI AGENT
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_defender_start
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "defender_agent", "status": "RUNNING", "message": "🛡️ Generating security fixes..."}
+
+  - id: defender_agent
+    type: io.kestra.plugin.ai.agent.AIAgent
+    description: "Generate Fixes"
+    timeout: PT5M
+    retry:
+      type: constant
+      maxAttempt: 2
+      interval: PT15S
+    provider:
+      type: io.kestra.plugin.ai.provider.GoogleGemini
+      apiKey: "{{ secret('GEMINI_API_KEY') }}"
+      modelName: gemini-2.5-flash
+    prompt: |
+      Generate fixes for these vulnerabilities:
+      {{ outputs.summarizer_agent.textOutput }}
+      
+      Output JSON with code fixes for each vulnerability.
+    systemMessage: Generate production-ready secure code fixes. Output valid JSON only.
+
+  - id: notify_defender_done
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "defender_agent", "status": "SUCCESS", "message": "🛡️ Security fixes generated"}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # FINAL REPORT
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_report_start
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "final_report", "status": "RUNNING", "message": "📊 Generating executive report..."}
+
+  - id: final_report
+    type: io.kestra.plugin.ai.agent.AIAgent
+    description: "Executive Report"
+    timeout: PT3M
+    provider:
+      type: io.kestra.plugin.ai.provider.GoogleGemini
+      apiKey: "{{ secret('GEMINI_API_KEY') }}"
+      modelName: gemini-2.5-flash
+    prompt: |
+      Generate security report for {{ inputs.repository_url }}:
+      Decision: {{ outputs.summarizer_agent.textOutput }}
+      Fixes: {{ outputs.defender_agent.textOutput }}
+      
+      Create markdown report with: security posture, key findings, recommended actions.
+    systemMessage: Be concise and actionable.
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # NOTIFY: Complete
+  # ═══════════════════════════════════════════════════════════════════════════
+  - id: notify_complete
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/task-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "task_id": "complete", "status": "SUCCESS", "message": "✅ Security assessment complete!"}
+
+  - id: complete
+    type: io.kestra.plugin.core.log.Log
+    message: "RedLoop Security Assessment Complete!"
+
+errors:
+  - id: notify_error
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "{{ inputs.backend_url }}/webhook/execution-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "state": "FAILED", "message": "❌ Scan failed - check Kestra logs for details"}
