@@ -3,6 +3,11 @@ namespace: redloop.security
 
 description: Full RedLoop security assessment workflow with 3 AI Agents
 
+labels:
+  project: redloop
+  type: security-scan
+  env: production
+
 inputs:
   - id: repository_url
     type: STRING
@@ -22,9 +27,11 @@ tasks:
         type: io.kestra.plugin.git.Clone
         url: "{{ inputs.repository_url }}"
         branch: "{{ inputs.branch }}"
+        timeout: PT2M
 
       - id: read_code
         type: io.kestra.plugin.scripts.shell.Commands
+        timeout: PT1M
         commands:
           - |
             for f in $(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \) | grep -v node_modules | grep -v .git | head -15); do
@@ -38,6 +45,11 @@ tasks:
       - id: adversary_agent
         type: io.kestra.plugin.ai.agent.AIAgent
         description: "Red Team - Find vulnerabilities"
+        timeout: PT5M
+        retry:
+          type: constant
+          maxAttempt: 2
+          interval: PT10S
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -78,6 +90,11 @@ tasks:
       - id: summarizer_agent
         type: io.kestra.plugin.ai.agent.AIAgent
         description: "Summarize vulnerabilities and make BLOCK/PASS decision"
+        timeout: PT3M
+        retry:
+          type: constant
+          maxAttempt: 2
+          interval: PT10S
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -113,6 +130,11 @@ tasks:
       - id: defender_agent
         type: io.kestra.plugin.ai.agent.AIAgent
         description: "Blue Team - Generate security fixes"
+        timeout: PT5M
+        retry:
+          type: constant
+          maxAttempt: 2
+          interval: PT10S
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -149,6 +171,7 @@ tasks:
       - id: final_report
         type: io.kestra.plugin.ai.agent.AIAgent
         description: "Generate executive summary"
+        timeout: PT3M
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -179,3 +202,8 @@ tasks:
   - id: complete
     type: io.kestra.plugin.core.log.Log
     message: "RedLoop Security Assessment Complete!"
+
+errors:
+  - id: error_handler
+    type: io.kestra.plugin.core.log.Log
+    message: "Flow failed: {{ error.message }}"

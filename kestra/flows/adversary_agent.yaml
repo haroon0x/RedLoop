@@ -1,6 +1,13 @@
 id: adversary_agent
 namespace: redloop.security
 
+description: Red team AI agent that analyzes code for security vulnerabilities
+
+labels:
+  project: redloop
+  type: security-scan
+  agent: adversary
+
 inputs:
   - id: repository_url
     type: STRING
@@ -19,9 +26,11 @@ tasks:
         type: io.kestra.plugin.git.Clone
         url: "{{ inputs.repository_url }}"
         branch: "{{ inputs.branch }}"
+        timeout: PT2M
 
       - id: read_code
         type: io.kestra.plugin.scripts.shell.Commands
+        timeout: PT1M
         commands:
           - |
             for f in $(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \) | grep -v node_modules | grep -v .git | head -15); do
@@ -34,6 +43,11 @@ tasks:
 
       - id: adversary_agent
         type: io.kestra.plugin.ai.agent.AIAgent
+        timeout: PT5M
+        retry:
+          type: constant
+          maxAttempt: 2
+          interval: PT10S
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -43,39 +57,20 @@ tasks:
           
           {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
           
-          Phase 1: RECONNAISSANCE
-          1. Identify the technology stack
-          2. Map attack surface (user inputs, APIs, database calls)
+          Look for: SQL injection, XSS, RCE, auth flaws, path traversal, hardcoded secrets.
           
-          Phase 2: VULNERABILITY IDENTIFICATION
-          Look for dangerous patterns:
-          - String concatenation in queries → SQLi
-          - Unsanitized user input in HTML → XSS
-          - exec(), eval(), system() calls → RCE
-          - Direct file path manipulation → Path Traversal
-          - Hardcoded secrets → Credential exposure
-          
-          Phase 3: EXPLOIT GENERATION
-          For each vulnerability, generate:
-          - Specific payload tailored to THIS code
-          - Step-by-step exploitation instructions
-          
-          Phase 4: REPORTING
-          Output your findings as JSON:
+          Output as JSON:
           {
-            "scan_id": "unique-id",
-            "target": "repository name",
             "vulnerabilities": [
               {
                 "id": "VULN-001",
                 "type": "SQL Injection",
                 "severity": "CRITICAL",
-                "file": "src/api/users.py",
+                "file": "path/to/file.py",
                 "line": 42,
-                "vulnerable_code": "query = f\"SELECT * FROM users WHERE id = {user_id}\"",
-                "payload": "1; DROP TABLE users; --",
-                "impact": "Full database compromise",
-                "fix_suggestion": "Use parameterized queries"
+                "vulnerable_code": "the vulnerable code",
+                "payload": "attack payload",
+                "fix_suggestion": "how to fix"
               }
             ],
             "summary": {
@@ -85,29 +80,18 @@ tasks:
               "medium": 0,
               "low": 0
             },
-            "recommendation": "BLOCK | WARN | PASS"
+            "recommendation": "BLOCK"
           }
-          
         systemMessage: |
-          You are ADVERSARY, an elite penetration tester and security researcher.
-          
-          Role: Red Team Security Researcher
-          Objective: Break code before real attackers do
-          
-          Attack Categories:
-          - INJECTION: SQL, NoSQL, Command, LDAP, XPath
-          - XSS: Reflected, Stored, DOM-based
-          - AUTH: Broken authentication, Session fixation, JWT manipulation
-          - ACCESS: IDOR, Privilege escalation, Path traversal
-          - RCE: Deserialization, Template injection, File upload bypass
-          - AI/LLM: Prompt injection, Jailbreaking
-          
-          Rules:
-          1. Be thorough: Check every user input, database call, file operation
-          2. Be specific: Generate payloads for THIS exact code
-          3. Be realistic: Focus on exploits that would actually work
-          4. Always provide fix suggestions
+          You are ADVERSARY, a red team security researcher.
+          Find vulnerabilities and generate specific attack payloads.
+          Be thorough and always provide fix suggestions.
 
-  - id: log_attacks
+  - id: log_complete
     type: io.kestra.plugin.core.log.Log
     message: "Adversary agent completed."
+
+errors:
+  - id: error_handler
+    type: io.kestra.plugin.core.log.Log
+    message: "Adversary agent failed: {{ error.message }}"
