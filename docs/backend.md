@@ -176,7 +176,7 @@ tasks:
     disabled: "{{ outputs.adversary_cline.exitCode == 0 }}"
     provider:
       type: io.kestra.plugin.ai.provider.GoogleGemini
-      modelName: gemini-2.0-flash
+      modelName: gemini-2.5-flash
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
     systemPrompt: |
       You are ADVERSARY, an elite penetration tester.
@@ -208,7 +208,7 @@ tasks:
     description: "Summarize vulnerabilities and make BLOCK/PASS decision"
     provider:
       type: io.kestra.plugin.ai.provider.GoogleGemini
-      modelName: gemini-2.0-flash
+      modelName: gemini-2.5-flash
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
     prompt: |
       You are a Security Analyst. Analyze the vulnerability scan results and provide:
@@ -262,7 +262,7 @@ tasks:
         disabled: "{{ outputs.defender_cline.exitCode == 0 }}"
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
-          modelName: gemini-2.0-flash
+          modelName: gemini-2.5-flash
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
         systemPrompt: |
           You are DEFENDER, a security engineer.
@@ -593,7 +593,7 @@ tasks:
     description: "Red Team - Find vulnerabilities"
     provider:
       type: io.kestra.plugin.ai.provider.GoogleGemini
-      modelName: gemini-2.0-flash
+      modelName: gemini-2.5-flash
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
     systemPrompt: |
       You are ADVERSARY, an elite penetration tester.
@@ -631,7 +631,7 @@ tasks:
     description: "Summarize vulnerabilities and make BLOCK/PASS decision"
     provider:
       type: io.kestra.plugin.ai.provider.GoogleGemini
-      modelName: gemini-2.0-flash
+      modelName: gemini-2.5-flash
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
     prompt: |
       You are a Security Analyst. Summarize these vulnerabilities from the Adversary scan:
@@ -666,7 +666,7 @@ tasks:
         description: "Blue Team - Generate security fixes"
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
-          modelName: gemini-2.0-flash
+          modelName: gemini-2.5-flash
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
         systemPrompt: |
           You are DEFENDER, a security engineer.

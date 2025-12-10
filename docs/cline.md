@@ -81,13 +81,3 @@ cline config s ollama-api-options-ctx-num=32768
 cline config s lm-studio-max-tokens=32768
 ```
 
-## Supported Providers
-
-- Anthropic
-- OpenAI
-- OpenRouter
-- Google Gemini
-- Ollama
-- X AI (Grok)
-- AWS Bedrock
-- Cerebras

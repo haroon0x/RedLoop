@@ -1,0 +1,181 @@
+id: redloop_orchestrator
+namespace: redloop.security
+
+description: Full RedLoop security assessment workflow with 3 AI Agents
+
+inputs:
+  - id: repository_url
+    type: STRING
+    description: "GitHub repository URL to analyze"
+    defaults: "https://github.com/kestra-io/scripts"
+  
+  - id: branch
+    type: STRING
+    defaults: "main"
+    description: "Branch to analyze"
+
+tasks:
+  - id: working_directory
+    type: io.kestra.plugin.core.flow.WorkingDirectory
+    tasks:
+      - id: clone_repository
+        type: io.kestra.plugin.git.Clone
+        url: "{{ inputs.repository_url }}"
+        branch: "{{ inputs.branch }}"
+
+      - id: read_code
+        type: io.kestra.plugin.scripts.shell.Commands
+        commands:
+          - |
+            for f in $(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \) | grep -v node_modules | grep -v .git | head -15); do
+              echo "=== FILE: $f ==="
+              head -150 "$f"
+              echo ""
+            done > code_content.txt
+        outputFiles:
+          - code_content.txt
+
+      - id: adversary_agent
+        type: io.kestra.plugin.ai.agent.AIAgent
+        description: "Red Team - Find vulnerabilities"
+        provider:
+          type: io.kestra.plugin.ai.provider.GoogleGemini
+          apiKey: "{{ secret('GEMINI_API_KEY') }}"
+          modelName: gemini-2.5-flash
+        prompt: |
+          Analyze the following code for security vulnerabilities:
+          
+          {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
+          
+          Output your findings as JSON:
+          {
+            "vulnerabilities": [
+              {
+                "id": "VULN-001",
+                "type": "SQL Injection",
+                "severity": "CRITICAL",
+                "file": "path/to/file.py",
+                "line": 42,
+                "vulnerable_code": "the vulnerable code",
+                "payload": "attack payload",
+                "fix_suggestion": "how to fix"
+              }
+            ],
+            "summary": {
+              "total_vulnerabilities": 1,
+              "critical": 1,
+              "high": 0,
+              "medium": 0,
+              "low": 0
+            },
+            "recommendation": "BLOCK"
+          }
+        systemMessage: |
+          You are ADVERSARY, a red team security researcher.
+          Find vulnerabilities: SQL injection, XSS, RCE, auth flaws, etc.
+          Be thorough and specific with payloads.
+
+      - id: summarizer_agent
+        type: io.kestra.plugin.ai.agent.AIAgent
+        description: "Summarize vulnerabilities and make BLOCK/PASS decision"
+        provider:
+          type: io.kestra.plugin.ai.provider.GoogleGemini
+          apiKey: "{{ secret('GEMINI_API_KEY') }}"
+          modelName: gemini-2.5-flash
+        prompt: |
+          Analyze the vulnerability report and make a deployment decision:
+          
+          {{ outputs.adversary_agent.textOutput }}
+          
+          Provide your analysis as JSON:
+          {
+            "summary": "2-3 sentence executive summary",
+            "risk_score": 7,
+            "decision": "BLOCK",
+            "reasoning": "why this decision was made",
+            "vulnerability_counts": {
+              "critical": 2,
+              "high": 1,
+              "medium": 3,
+              "low": 0,
+              "total": 6
+            },
+            "priority_fixes": ["fix 1", "fix 2", "fix 3"]
+          }
+          
+          Decision Rules:
+          - BLOCK if any CRITICAL or 3+ HIGH vulnerabilities
+          - PASS otherwise
+        systemMessage: |
+          You are a Security Analyst making deployment decisions.
+          Be decisive. Always include BLOCK or PASS decision.
+
+      - id: defender_agent
+        type: io.kestra.plugin.ai.agent.AIAgent
+        description: "Blue Team - Generate security fixes"
+        provider:
+          type: io.kestra.plugin.ai.provider.GoogleGemini
+          apiKey: "{{ secret('GEMINI_API_KEY') }}"
+          modelName: gemini-2.5-flash
+        prompt: |
+          Generate fixes for these vulnerabilities:
+          
+          VULNERABILITIES:
+          {{ outputs.adversary_agent.textOutput }}
+          
+          CODE:
+          {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
+          
+          Provide fixes as JSON:
+          {
+            "fixes": [
+              {
+                "vulnerability_id": "VULN-001",
+                "file": "path/to/file.py",
+                "original_code": "vulnerable code",
+                "fixed_code": "secure code",
+                "explanation": "why this fix works"
+              }
+            ],
+            "summary": {
+              "total_fixed": 5,
+              "success_rate": "83%"
+            }
+          }
+        systemMessage: |
+          You are DEFENDER, a blue team security engineer.
+          Generate production-ready secure code fixes.
+
+      - id: final_report
+        type: io.kestra.plugin.ai.agent.AIAgent
+        description: "Generate executive summary"
+        provider:
+          type: io.kestra.plugin.ai.provider.GoogleGemini
+          apiKey: "{{ secret('GEMINI_API_KEY') }}"
+          modelName: gemini-2.5-flash
+        prompt: |
+          Generate a final security assessment report:
+          
+          Repository: {{ inputs.repository_url }}
+          
+          ADVERSARY FINDINGS:
+          {{ outputs.adversary_agent.textOutput }}
+          
+          SUMMARIZER DECISION:
+          {{ outputs.summarizer_agent.textOutput }}
+          
+          DEFENDER FIXES:
+          {{ outputs.defender_agent.textOutput }}
+          
+          Create a concise executive summary in markdown with:
+          1. Overall security posture
+          2. Key findings (top 3)
+          3. Recommended actions
+          4. Deployment recommendation
+        systemMessage: |
+          You are a security analyst creating executive reports.
+          Be concise and actionable.
+
+  - id: complete
+    type: io.kestra.plugin.core.log.Log
+    message: "RedLoop Security Assessment Complete!"
