@@ -9,13 +9,11 @@ class KestraClient:
         self.flow_id = "redloop_orchestrator_v1"
         
     async def get_status(self) -> Dict[str, Any]:
-        """Check if Kestra is reachable."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{self.base_url}/api/v1/flows")
                 if response.status_code == 200:
                     return {"status": "online", "flows": len(response.json())}
-                # 401 means Kestra is running but auth is required - still "online"
                 if response.status_code == 401:
                     return {"status": "online", "auth_required": True}
                 return {"status": "error", "code": response.status_code}
@@ -30,15 +28,9 @@ class KestraClient:
         """Trigger the RedLoop security scan workflow via Webhook."""
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Webhook URL: /api/v1/executions/webhook/{namespace}/{flowId}/{key}
                 webhook_key = "redloop_secret"
                 url = f"{self.base_url}/api/v1/executions/webhook/{self.namespace}/{self.flow_id}/{webhook_key}"
-                
-                # Kestra webhook expects inputs as query parameters
-                params = {
-                    "repository_url": repository_url,
-                    "branch": branch
-                }
+                params = {"repository_url": repository_url, "branch": branch}
                 
                 print(f"Triggering Webhook: {url} with params: {params}")
                 response = await client.post(url, params=params)
@@ -48,7 +40,7 @@ class KestraClient:
                     return {
                         "success": True,
                         "execution_id": data.get("id"),
-                        "state": "CREATED", # Webhooks return execution details immediately
+                        "state": "CREATED",
                         "namespace": self.namespace,
                         "flow_id": self.flow_id
                     }
@@ -62,7 +54,6 @@ class KestraClient:
             return {"success": False, "error": str(e)}
 
     async def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
-        """Get the status of a running execution."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = f"{self.base_url}/api/v1/executions/{execution_id}"
@@ -71,8 +62,6 @@ class KestraClient:
                 if response.status_code == 200:
                     data = response.json()
                     state = data.get("state", {})
-                    
-                    # Extract task outputs if available
                     outputs = {}
                     task_run_list = data.get("taskRunList", [])
                     for task in task_run_list:

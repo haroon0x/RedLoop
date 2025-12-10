@@ -34,9 +34,7 @@ async def websocket_endpoint(websocket: WebSocket, execution_id: str):
     await manager.connect(websocket, execution_id)
     try:
         while True:
-            # Keep connection alive, receive any client messages
             data = await websocket.receive_text()
-            # Client can send "ping" to keep alive
             if data == "ping":
                 await websocket.send_text("pong")
     except WebSocketDisconnect:

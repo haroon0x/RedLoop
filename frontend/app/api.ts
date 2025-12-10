@@ -1,9 +1,5 @@
 import { API_URL } from './config';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// Types
-// ═══════════════════════════════════════════════════════════════════════════
-
 export interface KestraFlowRequest {
     repository_url: string;
     branch: string;
@@ -51,67 +47,37 @@ export interface WebSocketMessage {
     data?: unknown;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// API Functions
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Check backend health
- */
 export async function getHealth(): Promise<HealthResponse> {
     const response = await fetch(`${API_URL}/api/health`);
     if (!response.ok) throw new Error('Backend unavailable');
     return response.json();
 }
 
-/**
- * Check Kestra connection status
- */
 export async function getKestraStatus(): Promise<KestraConnectionStatus> {
     const response = await fetch(`${API_URL}/api/kestra/status`);
     if (!response.ok) throw new Error('Failed to check Kestra status');
     return response.json();
 }
 
-/**
- * Trigger a security scan workflow
- */
 export async function triggerScan(
     repositoryUrl: string,
     branch: string = 'main'
 ): Promise<KestraExecutionResponse> {
     const response = await fetch(`${API_URL}/api/kestra/trigger`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            repository_url: repositoryUrl,
-            branch: branch,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repository_url: repositoryUrl, branch }),
     });
-
-    if (!response.ok) {
-        throw new Error(`Failed to trigger scan: ${response.statusText}`);
-    }
-
+    if (!response.ok) throw new Error(`Failed to trigger scan: ${response.statusText}`);
     return response.json();
 }
 
-/**
- * Get execution status and results
- */
-export async function getExecutionStatus(
-    executionId: string
-): Promise<KestraStatusResponse> {
+export async function getExecutionStatus(executionId: string): Promise<KestraStatusResponse> {
     const response = await fetch(`${API_URL}/api/kestra/execution/${executionId}`);
     if (!response.ok) throw new Error('Failed to get execution status');
     return response.json();
 }
 
-/**
- * Get execution logs
- */
 export async function getExecutionLogs(
     executionId: string,
     limit: number = 50
@@ -121,52 +87,34 @@ export async function getExecutionLogs(
     return response.json();
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// WebSocket Connection for Real-Time Updates
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Create a WebSocket connection for real-time execution updates.
- * Returns an object with the WebSocket and cleanup function.
- */
 export function createExecutionWebSocket(
     executionId: string,
     onMessage: (data: WebSocketMessage) => void,
     onError?: (error: Event) => void,
     onClose?: () => void
 ): { ws: WebSocket; close: () => void } {
-    // Convert HTTP URL to WebSocket URL
     const wsUrl = API_URL.replace('http://', 'ws://').replace('https://', 'wss://');
     const ws = new WebSocket(`${wsUrl}/ws/execution/${executionId}`);
 
-    ws.onopen = () => {
-        console.log(`WebSocket connected for execution: ${executionId}`);
-    };
-
+    ws.onopen = () => console.log(`WebSocket connected: ${executionId}`);
     ws.onmessage = (event) => {
         try {
-            const data = JSON.parse(event.data) as WebSocketMessage;
-            onMessage(data);
+            onMessage(JSON.parse(event.data) as WebSocketMessage);
         } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
         }
     };
-
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         onError?.(error);
     };
-
     ws.onclose = () => {
         console.log('WebSocket closed');
         onClose?.();
     };
 
-    // Keep-alive ping every 30 seconds
     const pingInterval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send('ping');
-        }
+        if (ws.readyState === WebSocket.OPEN) ws.send('ping');
     }, 30000);
 
     return {
@@ -178,9 +126,6 @@ export function createExecutionWebSocket(
     };
 }
 
-/**
- * Poll execution until complete (fallback if WebSocket fails)
- */
 export async function pollExecution(
     executionId: string,
     onUpdate: (status: KestraStatusResponse) => void,
@@ -188,18 +133,12 @@ export async function pollExecution(
     maxAttempts: number = 100
 ): Promise<KestraStatusResponse> {
     let attempts = 0;
-
     while (attempts < maxAttempts) {
         const status = await getExecutionStatus(executionId);
         onUpdate(status);
-
-        if (['SUCCESS', 'FAILED', 'KILLED'].includes(status.state)) {
-            return status;
-        }
-
+        if (['SUCCESS', 'FAILED', 'KILLED'].includes(status.state)) return status;
         await new Promise(resolve => setTimeout(resolve, intervalMs));
         attempts++;
     }
-
     throw new Error('Polling timeout');
 }
