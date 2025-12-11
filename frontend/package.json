@@ -10,11 +10,18 @@
   },
   "dependencies": {
     "@iconify/react": "^6.0.2",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@react-three/postprocessing": "^3.0.4",
+    "@studio-freight/react-lenis": "^0.0.47",
     "framer-motion": "^12.23.25",
     "next": "16.0.7",
+    "postprocessing": "^6.38.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "recharts": "^3.5.1"
+    "recharts": "^3.5.1",
+    "three": "^0.182.0",
+    "unicornstudio-react": "^1.5.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
