@@ -401,7 +401,9 @@ body {
 }
 
 .hover-trigger:hover .animate-on-hover {
-  animation: glitch-video 0.25s steps(4) infinite;
+  filter: brightness(1.1) saturate(1.2);
+  transform: scale(1.15);
+  transition: all 0.5s ease-out;
 }
 
 @keyframes gradient-shift {
