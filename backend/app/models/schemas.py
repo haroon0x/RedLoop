@@ -32,3 +32,30 @@ class FixRequest(BaseModel):
 class FixResponse(BaseModel):
     fixes: List[FixSuggestion]
     count: int
+
+
+# Kestra Flow Schemas
+class KestraFlowRequest(BaseModel):
+    repository_url: str
+    branch: str = "main"
+
+
+class KestraExecutionResponse(BaseModel):
+    success: bool
+    execution_id: Optional[str] = None
+    state: Optional[str] = None
+    error: Optional[str] = None
+    namespace: Optional[str] = None
+    flow_id: Optional[str] = None
+
+
+class KestraStatusResponse(BaseModel):
+    success: bool
+    execution_id: str
+    state: str
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    duration: Optional[str] = None
+    task_count: int = 0
+    outputs: dict = {}
+    error: Optional[str] = None

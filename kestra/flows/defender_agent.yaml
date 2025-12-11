@@ -1,7 +1,12 @@
 id: defender_agent
 namespace: redloop.security
 
-description: Blue team agent that generates security fixes for vulnerabilities
+description: Blue team AI agent that generates security fixes for vulnerabilities
+
+labels:
+  project: redloop
+  type: security-scan
+  agent: defender
 
 inputs:
   - id: repository_url
@@ -27,9 +32,11 @@ tasks:
         type: io.kestra.plugin.git.Clone
         url: "{{ inputs.repository_url }}"
         branch: "{{ inputs.branch }}"
+        timeout: PT2M
 
       - id: read_code
         type: io.kestra.plugin.scripts.shell.Commands
+        timeout: PT1M
         commands:
           - |
             for f in $(find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" \) | grep -v node_modules | grep -v .git | head -15); do
@@ -42,66 +49,48 @@ tasks:
 
       - id: defender_agent
         type: io.kestra.plugin.ai.agent.AIAgent
+        timeout: PT5M
+        retry:
+          type: constant
+          maxAttempt: 2
+          interval: PT10S
         provider:
           type: io.kestra.plugin.ai.provider.GoogleGemini
           apiKey: "{{ secret('GEMINI_API_KEY') }}"
           modelName: gemini-2.5-flash
         prompt: |
-          VULNERABILITY REPORT FROM ADVERSARY:
+          VULNERABILITY REPORT:
           {{ inputs.attack_report }}
           
-          CODE FROM REPOSITORY:
+          CODE:
           {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
           
-          Your mission:
-          1. Analyze each vulnerability
-          2. Generate fixed code for each issue
-          3. Provide comprehensive fixes
-          
-          Output your fixes as JSON:
+          Generate fixes as JSON:
           {
             "fixes": [
               {
                 "vulnerability_id": "VULN-001",
                 "file": "path/to/file.py",
-                "original_code": "the vulnerable code",
-                "fixed_code": "the secure replacement code",
-                "explanation": "why this fix works",
-                "effectiveness": "HIGH/MEDIUM/LOW"
+                "original_code": "vulnerable code",
+                "fixed_code": "secure code",
+                "explanation": "why this fix works"
               }
             ],
             "summary": {
               "total_fixed": 5,
-              "total_skipped": 1,
               "success_rate": "83%"
-            },
-            "additional_recommendations": [
-              "Add input validation middleware",
-              "Implement rate limiting",
-              "Enable security headers"
-            ]
+            }
           }
-          
         systemMessage: |
-          You are DEFENDER, a security blue team specialist.
-          
-          Role: Blue Team Security Engineer
-          Objective: Fix vulnerabilities and harden code
-          
-          Fix Categories:
-          - INJECTION: Use parameterized queries, prepared statements
-          - XSS: Output encoding, Content Security Policy
-          - AUTH: Secure session management, MFA recommendations
-          - ACCESS: Role-based access control, principle of least privilege
-          - RCE: Input validation, sandboxing, allowlists
-          - AI/LLM: Prompt hardening, input/output filtering
-          
-          Rules:
-          1. Always provide working, production-ready code
-          2. Explain why each fix prevents the vulnerability
-          3. Consider edge cases and error handling
-          4. Suggest additional hardening measures
+          You are DEFENDER, a blue team security engineer.
+          Generate production-ready secure code fixes.
+          Use parameterized queries, input validation, output encoding.
 
-  - id: log_defenses
+  - id: log_complete
     type: io.kestra.plugin.core.log.Log
     message: "Defender agent completed."
+
+errors:
+  - id: error_handler
+    type: io.kestra.plugin.core.log.Log
+    message: "Defender agent failed: {{ error.message }}"

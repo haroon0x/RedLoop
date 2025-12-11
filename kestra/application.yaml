@@ -1,26 +1,22 @@
 kestra:
-  repository:
-    type: h2
-
-  queue:
-    type: h2
-
-  storage:
-    type: local
-    local:
-      base-path: /app/storage
-
   server:
     basic-auth:
       enabled: false
     preview:
       enabled: true
+  repository:
+    type: h2
+  storage:
+    type: local
+    local:
+      basePath: /app/data/storage
+  queue:
+    type: h2
+  tutorial-flows:
+    enabled: false
+  secret:
+    type: env
 
-  tasks:
-    tmp-dir:
-      path: /tmp/kestra-wd/tmp
-
-  variables:
-    env-vars-prefix: ""
-    globals:
-      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+micronaut:
+  security:
+    enabled: false

@@ -3,6 +3,11 @@ namespace: redloop.security
 
 description: AI Agent that summarizes vulnerability scan results and makes BLOCK/PASS decisions
 
+labels:
+  project: redloop
+  type: security-scan
+  agent: summarizer
+
 inputs:
   - id: vulnerability_data
     type: STRING
@@ -18,6 +23,11 @@ tasks:
   - id: summarizer
     type: io.kestra.plugin.ai.agent.AIAgent
     description: "Summarize vulnerabilities and make deployment decision"
+    timeout: PT3M
+    retry:
+      type: constant
+      maxAttempt: 2
+      interval: PT10S
     provider:
       type: io.kestra.plugin.ai.provider.GoogleGemini
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
@@ -25,46 +35,30 @@ tasks:
     
     systemMessage: |
       You are a Security Analyst AI Agent responsible for:
-      
-      1. SUMMARIZING vulnerability scan data from security tools
-      2. ANALYZING risk levels based on vulnerability severity
+      1. SUMMARIZING vulnerability scan data
+      2. ANALYZING risk levels based on severity
       3. MAKING DECISIONS on whether to BLOCK or PASS deployments
       
       Decision Rules:
-      - BLOCK if ANY of these conditions are true:
-        - 1+ CRITICAL severity vulnerabilities
-        - 3+ HIGH severity vulnerabilities
-        - Risk score >= 7
+      - BLOCK if: 1+ CRITICAL or 3+ HIGH vulnerabilities or risk_score >= 7
+      - PASS otherwise
       
-      - PASS if ALL of these conditions are true:
-        - 0 CRITICAL severity vulnerabilities
-        - < 3 HIGH severity vulnerabilities  
-        - Risk score < 7
-      
-      Risk Score Calculation:
-      - CRITICAL vulnerabilities: +3 points each
-      - HIGH vulnerabilities: +2 points each
-      - MEDIUM vulnerabilities: +1 point each
-      - LOW vulnerabilities: +0.5 points each
-      - Cap at 10
-      
-      Always be decisive. Every response must include a clear BLOCK or PASS decision.
+      Risk Score: CRITICAL=+3, HIGH=+2, MEDIUM=+1, LOW=+0.5 (cap at 10)
     
     prompt: |
-      Analyze the following vulnerability scan results and provide a security assessment:
+      Analyze the vulnerability scan results:
       
       Repository: {{ inputs.repository_name }}
       
       Vulnerability Data:
       {{ inputs.vulnerability_data }}
       
-      Provide your analysis as JSON with this exact structure:
-      
+      Provide as JSON:
       {
-        "summary": "2-3 sentence executive summary of the security posture",
+        "summary": "2-3 sentence executive summary",
         "risk_score": 7,
         "decision": "BLOCK",
-        "reasoning": "Brief explanation of why this decision was made",
+        "reasoning": "Brief explanation",
         "vulnerability_counts": {
           "critical": 2,
           "high": 1,
@@ -72,29 +66,14 @@ tasks:
           "low": 0,
           "total": 6
         },
-        "priority_fixes": [
-          "Fix SQL injection in auth.py line 42",
-          "Fix XSS in template.html line 15",
-          "Add input validation to user_input.py"
-        ],
-        "deployment_recommendation": "Do not deploy until critical vulnerabilities are fixed"
+        "priority_fixes": ["fix 1", "fix 2", "fix 3"]
       }
-      
-      Return ONLY valid JSON. No markdown, no explanation outside JSON.
 
-  - id: log_summary
+  - id: log_complete
     type: io.kestra.plugin.core.log.Log
-    message: "Summarizer Agent Complete - Decision: {{ json(outputs.summarizer.output).decision }}"
+    message: "Summarizer agent completed."
 
-outputs:
-  - id: summary_result
-    type: STRING
-    value: "{{ outputs.summarizer.output }}"
-  
-  - id: decision
-    type: STRING  
-    value: "{{ json(outputs.summarizer.output).decision }}"
-  
-  - id: risk_score
-    type: INT
-    value: "{{ json(outputs.summarizer.output).risk_score }}"
+errors:
+  - id: error_handler
+    type: io.kestra.plugin.core.log.Log
+    message: "Summarizer agent failed: {{ error.message }}"
