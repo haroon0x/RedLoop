@@ -32,9 +32,6 @@ inputs:
     description: "Backend URL for webhooks"
 
 tasks:
-  # ═══════════════════════════════════════════════════════════════════════════
-  # NOTIFY: Execution Started
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_start
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
@@ -44,9 +41,6 @@ tasks:
     body: |
       {"execution_id": "{{ execution.id }}", "task_id": "start", "status": "RUNNING", "message": "🚀 Starting scan for {{ inputs.repository_url }} ({{ inputs.branch }})"}
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # CLONE REPOSITORY
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: clone_and_scan
     type: io.kestra.plugin.core.flow.WorkingDirectory
     tasks:
@@ -81,9 +75,6 @@ tasks:
     body: |
       {"execution_id": "{{ execution.id }}", "task_id": "clone_repository", "status": "SUCCESS", "message": "📥 Repository cloned successfully"}
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # ADVERSARY AI AGENT
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_adversary_start
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
@@ -106,15 +97,48 @@ tasks:
       apiKey: "{{ secret('GEMINI_API_KEY') }}"
       modelName: gemini-2.5-flash
     prompt: |
-      Analyze this code for security vulnerabilities:
+      You are a security code auditor. Analyze the ACTUAL code below for REAL vulnerabilities.
       
+      CODE TO ANALYZE:
       {{ read(outputs.read_code.outputFiles['code_content.txt']) }}
       
-      Find: SQL injection, XSS, RCE, auth bypass, path traversal, hardcoded secrets.
+      STRICT RULES:
+      1. ONLY report vulnerabilities that you can point to with EXACT file path and line reference from the code above
+      2. NEVER invent or assume vulnerabilities - if the code doesn't show a vulnerability, it doesn't exist
+      3. For each vulnerability, quote the EXACT vulnerable code snippet from the provided code
+      4. If no vulnerabilities are found, return an empty array
+      5. DO NOT make up file names or code that isn't in the provided content
       
-      Output JSON:
-      {"vulnerabilities": [{"id": "VULN-001", "type": "...", "severity": "CRITICAL|HIGH|MEDIUM|LOW", "file": "...", "description": "...", "fix": "..."}], "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0}, "recommendation": "BLOCK or PASS"}
-    systemMessage: You are ADVERSARY, a red team security researcher. Find vulnerabilities. Output valid JSON only.
+      Look for these patterns in the ACTUAL provided code:
+      - SQL injection (unsanitized user input in SQL queries)
+      - XSS (unsanitized output to HTML)
+      - Command injection (user input in shell commands)
+      - Path traversal (user input in file paths without validation)
+      - Hardcoded secrets (API keys, passwords in code)
+      - Insecure deserialization
+      
+      Output ONLY valid JSON in this format:
+      {
+        "vulnerabilities": [
+          {
+            "id": "VULN-001",
+            "type": "SQL Injection",
+            "severity": "HIGH",
+            "file": "exact_file_path_from_code.py",
+            "line_reference": "Around line X in the provided code",
+            "vulnerable_code": "EXACT code snippet copied from above",
+            "description": "Why this is vulnerable",
+            "fix": "How to fix it"
+          }
+        ],
+        "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0},
+        "recommendation": "PASS or BLOCK",
+        "analysis_note": "Brief note on what was analyzed"
+      }
+      
+      If the code is secure or you cannot find real vulnerabilities with exact code references, return:
+      {"vulnerabilities": [], "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0}, "recommendation": "PASS", "analysis_note": "No vulnerabilities found with exact code evidence"}
+    systemMessage: You are a precise security auditor. You ONLY report vulnerabilities you can prove with exact code citations from the provided input. Never hallucinate or guess. If unsure, report nothing.
 
   - id: notify_adversary_done
     type: io.kestra.plugin.core.http.Request
@@ -125,9 +149,6 @@ tasks:
     body: |
       {"execution_id": "{{ execution.id }}", "task_id": "adversary_kestra", "status": "SUCCESS", "message": "🔴 Adversary scan complete", "output": {{ outputs.adversary_kestra.textOutput | default('"No output"') | json }}}
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # SUMMARIZER AI AGENT
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_summarizer_start
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
@@ -170,9 +191,6 @@ tasks:
     body: |
       {"execution_id": "{{ execution.id }}", "task_id": "summarizer_agent", "status": "SUCCESS", "message": "📋 Risk assessment complete", "output": {{ outputs.summarizer_agent.textOutput | default('"No output"') | json }}}
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # DEFENDER AI AGENT
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_defender_start
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
@@ -210,9 +228,6 @@ tasks:
     body: |
       {"execution_id": "{{ execution.id }}", "task_id": "defender_agent", "status": "SUCCESS", "message": "🛡️ Security fixes generated", "output": {{ outputs.defender_agent.textOutput | default('"No output"') | json }}}
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # FINAL REPORT
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_report_start
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
@@ -238,9 +253,6 @@ tasks:
       Create markdown report with: security posture, key findings, recommended actions.
     systemMessage: Be concise and actionable.
 
-  # ═══════════════════════════════════════════════════════════════════════════
-  # NOTIFY: Complete
-  # ═══════════════════════════════════════════════════════════════════════════
   - id: notify_complete
     type: io.kestra.plugin.core.http.Request
     allowFailure: true
