@@ -11,4 +11,5 @@ export type IconName =
     | 'check'
     | 'play'
     | 'github'
-    | 'close';
+    | 'close'
+    | 'download';

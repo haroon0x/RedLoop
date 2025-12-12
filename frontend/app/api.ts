@@ -45,6 +45,7 @@ export interface WebSocketMessage {
     state?: string;
     message?: string;
     data?: unknown;
+    output?: string;
 }
 
 export async function getHealth(): Promise<HealthResponse> {
@@ -98,8 +99,13 @@ export function createExecutionWebSocket(
 
     ws.onopen = () => console.log(`WebSocket connected: ${executionId}`);
     ws.onmessage = (event) => {
+        // Ignore ping/pong keep-alive messages
+        if (event.data === 'pong') return;
         try {
-            onMessage(JSON.parse(event.data) as WebSocketMessage);
+            const parsed = JSON.parse(event.data) as WebSocketMessage;
+            console.log('📡 WebSocket message received:', parsed);
+            console.log('📡 Output field:', parsed.output ? `${parsed.output.substring(0, 100)}...` : 'NONE');
+            onMessage(parsed);
         } catch (error) {
             console.error('Failed to parse WebSocket message:', error);
         }

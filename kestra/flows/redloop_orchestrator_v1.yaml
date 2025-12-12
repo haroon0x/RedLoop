@@ -123,7 +123,7 @@ tasks:
     method: POST
     contentType: application/json
     body: |
-      {"execution_id": "{{ execution.id }}", "task_id": "adversary_kestra", "status": "SUCCESS", "message": "🔴 Adversary scan complete - found vulnerabilities"}
+      {"execution_id": "{{ execution.id }}", "task_id": "adversary_kestra", "status": "SUCCESS", "message": "🔴 Adversary scan complete", "output": {{ outputs.adversary_kestra.textOutput | default('"No output"') | json }}}
 
   # ═══════════════════════════════════════════════════════════════════════════
   # SUMMARIZER AI AGENT
@@ -168,7 +168,7 @@ tasks:
     method: POST
     contentType: application/json
     body: |
-      {"execution_id": "{{ execution.id }}", "task_id": "summarizer_agent", "status": "SUCCESS", "message": "📋 Risk assessment complete"}
+      {"execution_id": "{{ execution.id }}", "task_id": "summarizer_agent", "status": "SUCCESS", "message": "📋 Risk assessment complete", "output": {{ outputs.summarizer_agent.textOutput | default('"No output"') | json }}}
 
   # ═══════════════════════════════════════════════════════════════════════════
   # DEFENDER AI AGENT
@@ -208,7 +208,7 @@ tasks:
     method: POST
     contentType: application/json
     body: |
-      {"execution_id": "{{ execution.id }}", "task_id": "defender_agent", "status": "SUCCESS", "message": "🛡️ Security fixes generated"}
+      {"execution_id": "{{ execution.id }}", "task_id": "defender_agent", "status": "SUCCESS", "message": "🛡️ Security fixes generated", "output": {{ outputs.defender_agent.textOutput | default('"No output"') | json }}}
 
   # ═══════════════════════════════════════════════════════════════════════════
   # FINAL REPORT
@@ -248,7 +248,7 @@ tasks:
     method: POST
     contentType: application/json
     body: |
-      {"execution_id": "{{ execution.id }}", "task_id": "complete", "status": "SUCCESS", "message": "✅ Security assessment complete!"}
+      {"execution_id": "{{ execution.id }}", "task_id": "complete", "status": "SUCCESS", "message": "✅ Security assessment complete!", "output": {{ outputs.final_report.textOutput | default('"No report"') | json }}}
 
   - id: complete
     type: io.kestra.plugin.core.log.Log

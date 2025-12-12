@@ -16,9 +16,10 @@ interface ExecutionStatusProps {
     repoUrl: string;
     onLog: (log: { type: string; msg: string }) => void;
     onComplete: (status: 'success' | 'failed') => void;
+    onOutputReceived?: (taskId: string, output: string) => void;
 }
 
-export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplete }: ExecutionStatusProps) {
+export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplete, onOutputReceived }: ExecutionStatusProps) {
     const [isConnected, setIsConnected] = useState(true);
     const [executionState, setExecutionState] = useState<'RUNNING' | 'SUCCESS' | 'FAILED'>('RUNNING');
     const [taskStates, setTaskStates] = useState<Record<string, TaskState>>({});
@@ -27,10 +28,12 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
     const hasConnectedRef = useRef(false);
     const onLogRef = useRef(onLog);
     const onCompleteRef = useRef(onComplete);
+    const onOutputReceivedRef = useRef(onOutputReceived);
 
     useEffect(() => {
         onLogRef.current = onLog;
         onCompleteRef.current = onComplete;
+        onOutputReceivedRef.current = onOutputReceived;
     });
 
     useEffect(() => {
@@ -46,8 +49,18 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
                     ...prev,
                     [data.task_id!]: { status: data.status || 'RUNNING', message: data.message || '' }
                 }));
+
                 const logType = data.status === 'SUCCESS' ? 'success' : data.status === 'FAILED' ? 'danger' : 'info';
                 onLogRef.current({ type: logType, msg: data.message || `Task ${data.task_id}` });
+
+                // Pass the actual AI output to parent if present
+                if (data.output && typeof data.output === 'string' && data.output.length > 0) {
+                    onOutputReceivedRef.current?.(data.task_id!, data.output);
+
+                    // Also log a summary to terminal
+                    const lines = data.output.split('\n').filter(l => l.trim()).length;
+                    onLogRef.current({ type: 'info', msg: `  └─ Received ${lines} lines of output` });
+                }
 
                 if (data.task_id === 'complete' && data.status === 'SUCCESS') {
                     setExecutionState('SUCCESS');
@@ -75,10 +88,10 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
     const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
     const workflowStages = [
-        { id: 'clone_repository', name: 'Clone', icon: '📥' },
+        { id: 'clone_repository', name: 'Clone Repository', icon: '📥' },
         { id: 'adversary_kestra', name: 'Adversary Scan', icon: '🔴' },
         { id: 'summarizer_agent', name: 'Risk Analysis', icon: '📋' },
-        { id: 'defender_agent', name: 'Generate Fixes', icon: '🛡️' },
+        { id: 'defender_agent', name: 'Security Fixes', icon: '🛡️' },
         { id: 'complete', name: 'Complete', icon: '✅' },
     ];
 
@@ -99,7 +112,7 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
                     <span className="w-8 h-8 rounded-lg bg-[#8b5cf6]/20 flex items-center justify-center">
                         <Icon name="terminal" size={18} className="text-[#8b5cf6]" />
                     </span>
-                    Live Execution
+                    Execution Status
                 </h3>
                 <div className="flex items-center gap-3">
                     <span className="font-mono text-sm text-[#606070] bg-white/5 px-2 py-1 rounded">{formatTime(elapsedTime)}</span>
@@ -143,8 +156,8 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
                             key={stage.id}
                             animate={{ opacity: isCompleted || isActive || isFailed ? 1 : 0.4 }}
                             className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isCompleted ? 'bg-[#22c55e]/10 border border-[#22c55e]/20' :
-                                isActive ? 'bg-[#06b6d4]/10 border border-[#06b6d4]/20' :
-                                    isFailed ? 'bg-[#ff2d55]/10 border border-[#ff2d55]/20' : 'bg-white/5 border border-white/5'
+                                    isActive ? 'bg-[#06b6d4]/10 border border-[#06b6d4]/20' :
+                                        isFailed ? 'bg-[#ff2d55]/10 border border-[#ff2d55]/20' : 'bg-white/5 border border-white/5'
                                 }`}
                         >
                             <span className="text-xl">{stage.icon}</span>
