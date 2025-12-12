@@ -24,6 +24,11 @@ const ScanHistory = dynamic(() => import('./components/ScanHistory'), {
     ssr: false
 });
 
+const ScanReport = dynamic(() => import('./components/ScanReport'), {
+    loading: () => <CardSkeleton />,
+    ssr: false
+});
+
 interface LogEntry {
     id: number;
     type: string;
@@ -215,6 +220,7 @@ export default function Dashboard() {
     const [currentExecution, setCurrentExecution] = useState<{ id: string; repoUrl: string; branch: string } | null>(null);
     const [isScanning, setIsScanning] = useState(false);
     const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
+    const [scanOutputs, setScanOutputs] = useState<Record<string, string>>({});
 
     const addLog = useCallback((log: { type: string; msg: string }) => {
         setLogs(prev => [...prev.slice(-300), { id: Date.now() + Math.random(), ...log, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
@@ -223,7 +229,12 @@ export default function Dashboard() {
     const handleScanStart = useCallback((executionId: string, repoUrl: string, branch: string) => {
         setCurrentExecution({ id: executionId, repoUrl, branch });
         setIsScanning(true);
+        setScanOutputs({});
         setScanHistory(prev => [{ id: executionId, repoUrl, branch, status: 'running', startTime: new Date() }, ...prev.slice(0, 9)]);
+    }, []);
+
+    const handleOutputReceived = useCallback((taskId: string, output: string) => {
+        setScanOutputs(prev => ({ ...prev, [taskId]: output }));
     }, []);
 
     const handleScanComplete = useCallback((status: 'success' | 'failed') => {
@@ -281,12 +292,28 @@ export default function Dashboard() {
                                 <ScanForm onScanStart={handleScanStart} onLog={addLog} disabled={isScanning} />
                                 <Suspense fallback={<CardSkeleton />}>
                                     {currentExecution ? (
-                                        <ExecutionStatus executionId={currentExecution.id} repoUrl={currentExecution.repoUrl} onLog={addLog} onComplete={handleScanComplete} />
+                                        <ExecutionStatus
+                                            executionId={currentExecution.id}
+                                            repoUrl={currentExecution.repoUrl}
+                                            onLog={addLog}
+                                            onComplete={handleScanComplete}
+                                            onOutputReceived={handleOutputReceived}
+                                        />
                                     ) : (
                                         <EmptyState />
                                     )}
                                 </Suspense>
                             </div>
+                            {currentExecution && (
+                                <Suspense fallback={<CardSkeleton />}>
+                                    <ScanReport
+                                        executionId={currentExecution.id}
+                                        repoUrl={currentExecution.repoUrl}
+                                        outputs={scanOutputs}
+                                        isComplete={!isScanning}
+                                    />
+                                </Suspense>
+                            )}
                             <Suspense fallback={<CardSkeleton />}>
                                 <ScanHistory history={scanHistory} />
                             </Suspense>

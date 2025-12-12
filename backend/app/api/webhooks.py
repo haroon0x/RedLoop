@@ -46,6 +46,7 @@ async def receive_task_update(request: Request):
             "task_id": task_id,
             "status": status,
             "message": message,
+            "output": data.get("output"),
             "data": data.get("data")
         })
         
