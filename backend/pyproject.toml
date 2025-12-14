@@ -1,7 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "RedLoop Backend - AI-powered security scanning pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

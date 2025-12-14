@@ -232,7 +232,7 @@ export const Card: React.FC<CardProps> = ({
 
 interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children"> {
     children: React.ReactNode;
-    variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
+    variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger' | 'success';
     size?: 'sm' | 'md' | 'lg';
     icon?: React.ReactNode;
     magnetic?: boolean;
@@ -272,6 +272,8 @@ export const Button: React.FC<ButtonProps> = ({
         secondary: 'bg-white/5 text-white hover:bg-white/10 border border-white/10',
         outline: 'bg-transparent border-2 border-[#ff2d55] text-[#ff2d55] hover:bg-[#ff2d55]/10',
         ghost: 'bg-transparent text-[#a0a0b0] hover:text-white',
+        danger: 'bg-[#ff2d55]/20 text-[#ff2d55] hover:bg-[#ff2d55]/30 border border-[#ff2d55]/30',
+        success: 'bg-[#22c55e]/20 text-[#22c55e] hover:bg-[#22c55e]/30 border border-[#22c55e]/30',
     };
 
     const sizes = {

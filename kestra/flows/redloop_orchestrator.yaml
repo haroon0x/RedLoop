@@ -204,6 +204,15 @@ tasks:
     message: "RedLoop Security Assessment Complete!"
 
 errors:
-  - id: error_handler
+  - id: error_log
     type: io.kestra.plugin.core.log.Log
     message: "Flow failed: {{ error.message }}"
+  
+  - id: error_notify
+    type: io.kestra.plugin.core.http.Request
+    allowFailure: true
+    uri: "http://redloop-backend:8000/webhook/execution-update"
+    method: POST
+    contentType: application/json
+    body: |
+      {"execution_id": "{{ execution.id }}", "state": "FAILED", "message": "❌ Scan failed: {{ error.message | default('Unknown error') }}"}
