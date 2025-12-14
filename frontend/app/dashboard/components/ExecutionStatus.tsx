@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '../../components/Icon';
 import { Card } from '../../components/UI';
-import { createExecutionWebSocket, WebSocketMessage } from '../../api';
+import { createExecutionSSE, SSEMessage } from '../../api';
 
 interface TaskState {
     status: string;
@@ -24,11 +24,17 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
     const [executionState, setExecutionState] = useState<'RUNNING' | 'SUCCESS' | 'FAILED'>('RUNNING');
     const [taskStates, setTaskStates] = useState<Record<string, TaskState>>({});
     const [elapsedTime, setElapsedTime] = useState(0);
-    const wsRef = useRef<{ close: () => void } | null>(null);
+    const sseRef = useRef<{ close: () => void } | null>(null);
     const hasConnectedRef = useRef(false);
     const onLogRef = useRef(onLog);
     const onCompleteRef = useRef(onComplete);
     const onOutputReceivedRef = useRef(onOutputReceived);
+
+    const executionStateRef = useRef(executionState);
+
+    useEffect(() => {
+        executionStateRef.current = executionState;
+    }, [executionState]);
 
     useEffect(() => {
         onLogRef.current = onLog;
@@ -43,42 +49,165 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
     }, [executionState]);
 
     useEffect(() => {
-        const handleMessage = (data: WebSocketMessage) => {
-            if (data.type === 'task_update' && data.task_id) {
-                setTaskStates(prev => ({
-                    ...prev,
-                    [data.task_id!]: { status: data.status || 'RUNNING', message: data.message || '' }
-                }));
+        const handleMessage = (data: SSEMessage) => {
 
-                const logType = data.status === 'SUCCESS' ? 'success' : data.status === 'FAILED' ? 'danger' : 'info';
-                onLogRef.current({ type: logType, msg: data.message || `Task ${data.task_id}` });
+            if (data.type === 'connected' || data.type === 'waiting') {
+                // Initial connection or waiting for data
+                return;
+            }
 
-                // Pass the actual AI output to parent if present
-                if (data.output && typeof data.output === 'string' && data.output.length > 0) {
-                    onOutputReceivedRef.current?.(data.task_id!, data.output);
+            if (data.type === 'complete') {
+                // Execution completed
+                const newState = data.state === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
+                if (executionStateRef.current === 'RUNNING') {
+                    setExecutionState(newState);
+                    queueMicrotask(() => {
+                        if (newState === 'SUCCESS') {
+                            onCompleteRef.current('success');
+                        } else {
+                            onLogRef.current({ type: 'danger', msg: '❌ Scan failed' });
+                            onCompleteRef.current('failed');
+                        }
+                    });
+                }
+                return;
+            }
 
-                    // Also log a summary to terminal
-                    const lines = data.output.split('\n').filter(l => l.trim()).length;
-                    onLogRef.current({ type: 'info', msg: `  └─ Received ${lines} lines of output` });
+            if (data.type === 'execution_update') {
+                // Update overall execution state
+                if (data.state) {
+                    const newState = data.state === 'SUCCESS' ? 'SUCCESS' :
+                        data.state === 'FAILED' || data.state === 'KILLED' ? 'FAILED' : 'RUNNING';
+
+                    if (newState !== executionStateRef.current && executionStateRef.current === 'RUNNING') {
+                        setExecutionState(newState);
+                        queueMicrotask(() => {
+                            if (newState === 'SUCCESS') onCompleteRef.current('success');
+                            if (newState === 'FAILED') {
+                                onLogRef.current({ type: 'danger', msg: '❌ Scan failed' });
+                                onCompleteRef.current('failed');
+                            }
+                        });
+                    }
                 }
 
-                if (data.task_id === 'complete' && data.status === 'SUCCESS') {
-                    setExecutionState('SUCCESS');
-                    onCompleteRef.current('success');
+                // Handle webhook format (tasks as dictionary)
+                if (data.tasks && typeof data.tasks === 'object') {
+                    const logsToAdd: Array<{ type: string; msg: string }> = [];
+                    const outputsToSend: Array<{ taskId: string; output: string }> = [];
+
+                    setTaskStates(prev => {
+                        const next = { ...prev };
+                        let hasUpdates = false;
+
+                        Object.entries(data.tasks as Record<string, { status: string; message?: string; output?: string }>).forEach(([taskId, taskData]) => {
+                            const status = taskData.status || 'UNKNOWN';
+
+                            if (!next[taskId] || next[taskId].status !== status) {
+                                next[taskId] = {
+                                    status: status,
+                                    message: taskData.message || ''
+                                };
+                                hasUpdates = true;
+
+                                // Queue log messages
+                                if (status === 'SUCCESS') {
+                                    logsToAdd.push({ type: 'success', msg: `✅ Task ${taskId} completed` });
+                                } else if (status === 'FAILED') {
+                                    logsToAdd.push({ type: 'danger', msg: `❌ Task ${taskId} failed` });
+                                } else if (status === 'RUNNING' && (!prev[taskId] || prev[taskId].status !== 'RUNNING')) {
+                                    logsToAdd.push({ type: 'info', msg: `▶️ Task ${taskId} started` });
+                                }
+
+                                // Queue outputs
+                                if (taskData.output) {
+                                    outputsToSend.push({ taskId, output: taskData.output });
+                                    logsToAdd.push({ type: 'info', msg: `  └─ Received output from ${taskId}` });
+                                }
+                            }
+                        });
+
+                        return hasUpdates ? next : prev;
+                    });
+
+                    // Defer log and output callbacks
+                    if (logsToAdd.length > 0 || outputsToSend.length > 0) {
+                        queueMicrotask(() => {
+                            logsToAdd.forEach(log => onLogRef.current(log));
+                            outputsToSend.forEach(({ taskId, output }) => onOutputReceivedRef.current?.(taskId, output));
+                        });
+                    }
                 }
-            } else if (data.type === 'execution_update' && data.state === 'FAILED') {
-                setExecutionState('FAILED');
-                onLogRef.current({ type: 'danger', msg: data.message || '❌ Scan failed' });
-                onCompleteRef.current('failed');
+
+                // Handle Kestra format (task_run_list as array) - fallback
+                if (data.task_run_list && Array.isArray(data.task_run_list)) {
+                    const logsToAdd: Array<{ type: string; msg: string }> = [];
+                    const outputsToSend: Array<{ taskId: string; output: string }> = [];
+
+                    setTaskStates(prev => {
+                        const next = { ...prev };
+                        let hasUpdates = false;
+
+                        interface KestraTaskRun {
+                            taskId: string;
+                            state: { current: string };
+                            outputs?: { output?: string | object };
+                        }
+
+                        data.task_run_list!.forEach((item: unknown) => {
+                            const task = item as KestraTaskRun;
+                            const taskId = task.taskId;
+                            const status = task.state.current;
+
+                            if (!next[taskId] || next[taskId].status !== status) {
+                                next[taskId] = {
+                                    status: status,
+                                    message: ''
+                                };
+                                hasUpdates = true;
+
+                                if (status === 'SUCCESS') {
+                                    logsToAdd.push({ type: 'success', msg: `Task ${taskId} completed` });
+                                } else if (status === 'FAILED') {
+                                    logsToAdd.push({ type: 'danger', msg: `Task ${taskId} failed` });
+                                } else if (status === 'RUNNING' && (!prev[taskId] || prev[taskId].status !== 'RUNNING')) {
+                                    logsToAdd.push({ type: 'info', msg: `Task ${taskId} started` });
+                                }
+
+                                if (task.outputs && task.outputs.output) {
+                                    const output = task.outputs.output;
+                                    outputsToSend.push({ taskId, output: typeof output === 'string' ? output : JSON.stringify(output) });
+                                }
+                            }
+                        });
+
+                        return hasUpdates ? next : prev;
+                    });
+
+                    // Defer log and output callbacks
+                    if (logsToAdd.length > 0 || outputsToSend.length > 0) {
+                        queueMicrotask(() => {
+                            logsToAdd.forEach(log => onLogRef.current(log));
+                            outputsToSend.forEach(({ taskId, output }) => onOutputReceivedRef.current?.(taskId, output));
+                        });
+                    }
+                }
+            } else if (data.type === 'error') {
+                console.error('SSE Error:', data.error);
+                queueMicrotask(() => onLogRef.current({ type: 'danger', msg: `Stream error: ${data.error}` }));
             }
         };
 
-        const handleDisconnect = () => setIsConnected(false);
-        const { close } = createExecutionWebSocket(executionId, handleMessage, handleDisconnect, handleDisconnect);
-        wsRef.current = { close };
+        const handleError = (error: Event) => {
+            console.error('SSE Connection Error:', error);
+            setIsConnected(false);
+        };
+
+        const { close } = createExecutionSSE(executionId, handleMessage, handleError);
+        sseRef.current = { close };
 
         if (!hasConnectedRef.current) {
-            onLogRef.current({ type: 'success', msg: '📡 Connected to real-time stream' });
+            onLogRef.current({ type: 'success', msg: '📡 Connected to real-time stream (SSE)' });
             hasConnectedRef.current = true;
         }
 
@@ -88,10 +217,12 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
     const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
     const workflowStages = [
+        { id: 'start', name: 'Starting Scan', icon: '🚀' },
         { id: 'clone_repository', name: 'Clone Repository', icon: '📥' },
-        { id: 'adversary_kestra', name: 'Adversary Scan', icon: '🔴' },
+        { id: 'adversary_agent', name: 'Adversary Scan', icon: '🔴' },
         { id: 'summarizer_agent', name: 'Risk Analysis', icon: '📋' },
         { id: 'defender_agent', name: 'Security Fixes', icon: '🛡️' },
+        { id: 'final_report', name: 'Final Report', icon: '📄' },
         { id: 'complete', name: 'Complete', icon: '✅' },
     ];
 
@@ -156,8 +287,8 @@ export default function ExecutionStatus({ executionId, repoUrl, onLog, onComplet
                             key={stage.id}
                             animate={{ opacity: isCompleted || isActive || isFailed ? 1 : 0.4 }}
                             className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isCompleted ? 'bg-[#22c55e]/10 border border-[#22c55e]/20' :
-                                    isActive ? 'bg-[#06b6d4]/10 border border-[#06b6d4]/20' :
-                                        isFailed ? 'bg-[#ff2d55]/10 border border-[#ff2d55]/20' : 'bg-white/5 border border-white/5'
+                                isActive ? 'bg-[#06b6d4]/10 border border-[#06b6d4]/20' :
+                                    isFailed ? 'bg-[#ff2d55]/10 border border-[#ff2d55]/20' : 'bg-white/5 border border-white/5'
                                 }`}
                         >
                             <span className="text-xl">{stage.icon}</span>

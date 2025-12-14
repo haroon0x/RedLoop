@@ -4,6 +4,8 @@ kestra:
       enabled: false
     preview:
       enabled: true
+    access-log:
+      enabled: true
   repository:
     type: h2
   storage:
@@ -20,3 +22,7 @@ kestra:
 micronaut:
   security:
     enabled: false
+    intercept-url-map:
+      - pattern: /**
+        access:
+          - isAnonymous()

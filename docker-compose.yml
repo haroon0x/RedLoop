@@ -11,8 +11,6 @@ services:
       - .env_encoded
     environment:
       - KESTRA_CONFIGURATION_PATH=/app/confs/application.yaml
-      - MICRONAUT_SECURITY_ENABLED=false
-      - KESTRA_SERVER_BASIC_AUTH_ENABLED=false
       - KESTRA_SERVER_PREVIEW_ENABLED=true
     volumes:
       - kestra-data:/app/storage
@@ -21,6 +19,12 @@ services:
       - ./kestra/application.yaml:/app/confs/application.yaml:ro
       - ./kestra/flows:/app/flows:ro
     restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-sf", "http://localhost:8080/api/v1/configs" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   backend:
     build:
@@ -32,11 +36,13 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - KESTRA_URL=http://kestra:8080
+      - LOG_LEVEL=INFO
     volumes:
       - ./backend/app:/app/app:ro
       - ./prompts:/app/prompts:ro
     depends_on:
-      - kestra
+      kestra:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
@@ -48,18 +54,13 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: redloop-frontend
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_KESTRA_URL=http://localhost:8080
-      - WATCHPACK_POLLING=true
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     depends_on:
       backend:
         condition: service_healthy

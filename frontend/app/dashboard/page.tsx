@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { Card, Badge, Button, PageTransition } from '../components/UI';
 import { IconName } from '../types';
 import { triggerScan, getHealth, getKestraStatus } from '../api';
+import { ScanHistoryEntry, loadHistoryFromStorage, saveHistoryToStorage } from './components/ScanHistory';
 
 const LiveTerminal = dynamic(() => import('./components/LiveTerminal'), {
     loading: () => <TerminalSkeleton />,
@@ -29,19 +30,21 @@ const ScanReport = dynamic(() => import('./components/ScanReport'), {
     ssr: false
 });
 
+const ExecutionControls = dynamic(() => import('./components/ExecutionControls'), {
+    loading: () => null,
+    ssr: false
+});
+
+const DownloadPanel = dynamic(() => import('./components/DownloadPanel'), {
+    loading: () => <CardSkeleton />,
+    ssr: false
+});
+
 interface LogEntry {
     id: number;
     type: string;
     msg: string;
     time: string;
-}
-
-interface ScanHistoryEntry {
-    id: string;
-    repoUrl: string;
-    branch: string;
-    status: 'running' | 'success' | 'failed';
-    startTime: Date;
 }
 
 const TerminalSkeleton = () => (
@@ -219,8 +222,17 @@ export default function Dashboard() {
     ]);
     const [currentExecution, setCurrentExecution] = useState<{ id: string; repoUrl: string; branch: string } | null>(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [executionState, setExecutionState] = useState<'RUNNING' | 'SUCCESS' | 'FAILED' | 'KILLED'>('RUNNING');
     const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
     const [scanOutputs, setScanOutputs] = useState<Record<string, string>>({});
+
+    // Load history from localStorage on mount
+    useEffect(() => {
+        const stored = loadHistoryFromStorage();
+        if (stored.length > 0) {
+            setScanHistory(stored);
+        }
+    }, []);
 
     const addLog = useCallback((log: { type: string; msg: string }) => {
         setLogs(prev => [...prev.slice(-300), { id: Date.now() + Math.random(), ...log, time: new Date().toLocaleTimeString('en-US', { hour12: false }) }]);
@@ -229,8 +241,16 @@ export default function Dashboard() {
     const handleScanStart = useCallback((executionId: string, repoUrl: string, branch: string) => {
         setCurrentExecution({ id: executionId, repoUrl, branch });
         setIsScanning(true);
+        setExecutionState('RUNNING');
         setScanOutputs({});
-        setScanHistory(prev => [{ id: executionId, repoUrl, branch, status: 'running', startTime: new Date() }, ...prev.slice(0, 9)]);
+        const newEntry: ScanHistoryEntry = {
+            id: executionId,
+            repoUrl,
+            branch,
+            status: 'running',
+            startTime: new Date().toISOString()
+        };
+        setScanHistory(prev => [newEntry, ...prev.slice(0, 19)]);
     }, []);
 
     const handleOutputReceived = useCallback((taskId: string, output: string) => {
@@ -239,8 +259,40 @@ export default function Dashboard() {
 
     const handleScanComplete = useCallback((status: 'success' | 'failed') => {
         setIsScanning(false);
-        setScanHistory(prev => prev.map(entry => entry.id === currentExecution?.id ? { ...entry, status } : entry));
+        setExecutionState(status === 'success' ? 'SUCCESS' : 'FAILED');
+        setScanHistory(prev => {
+            const updated = prev.map(entry =>
+                entry.id === currentExecution?.id ? { ...entry, status, outputs: scanOutputs } : entry
+            );
+            saveHistoryToStorage(updated);
+            return updated;
+        });
+    }, [currentExecution, scanOutputs]);
+
+    const handleKilled = useCallback(() => {
+        setIsScanning(false);
+        setExecutionState('KILLED');
+        setScanHistory(prev => {
+            const updated = prev.map(entry =>
+                entry.id === currentExecution?.id ? { ...entry, status: 'killed' as const } : entry
+            );
+            saveHistoryToStorage(updated);
+            return updated;
+        });
     }, [currentExecution]);
+
+    const handleReplay = useCallback((newExecutionId: string, repoUrl: string, branch: string) => {
+        handleScanStart(newExecutionId, repoUrl, branch);
+    }, [handleScanStart]);
+
+    const handleHistorySelect = useCallback((entry: ScanHistoryEntry) => {
+        if (entry.status !== 'running') {
+            setCurrentExecution({ id: entry.id, repoUrl: entry.repoUrl, branch: entry.branch });
+            setScanOutputs(entry.outputs || {});
+            setIsScanning(false);
+            setExecutionState(entry.status === 'success' ? 'SUCCESS' : entry.status === 'failed' ? 'FAILED' : 'KILLED');
+        }
+    }, []);
 
     return (
         <PageTransition>
@@ -314,11 +366,46 @@ export default function Dashboard() {
                                     />
                                 </Suspense>
                             )}
+                            {/* Download Panel */}
+                            {currentExecution && (
+                                <Suspense fallback={<CardSkeleton />}>
+                                    <DownloadPanel
+                                        executionId={currentExecution.id}
+                                        outputs={scanOutputs}
+                                        isComplete={!isScanning}
+                                    />
+                                </Suspense>
+                            )}
+
+                            {/* Execution Controls */}
+                            {currentExecution && (
+                                <ExecutionControls
+                                    executionId={currentExecution.id}
+                                    executionState={executionState}
+                                    repoUrl={currentExecution.repoUrl}
+                                    branch={currentExecution.branch}
+                                    onKilled={handleKilled}
+                                    onReplay={(newId) => handleReplay(newId, currentExecution.repoUrl, currentExecution.branch)}
+                                    onLog={addLog}
+                                />
+                            )}
+
+                            {/* Scan History with persistence */}
                             <Suspense fallback={<CardSkeleton />}>
-                                <ScanHistory history={scanHistory} />
+                                <ScanHistory
+                                    history={scanHistory}
+                                    onHistoryChange={setScanHistory}
+                                    onSelectEntry={handleHistorySelect}
+                                    onReplay={handleReplay}
+                                    selectedId={currentExecution?.id}
+                                />
                             </Suspense>
                             <Suspense fallback={<TerminalSkeleton />}>
-                                <LiveTerminal logs={logs} isScanning={isScanning} />
+                                <LiveTerminal
+                                    logs={logs}
+                                    isScanning={isScanning}
+                                    executionId={currentExecution?.id}
+                                />
                             </Suspense>
                         </div>
                     </div>

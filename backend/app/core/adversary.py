@@ -1,8 +1,11 @@
 import json
+import logging
 import subprocess
 from pathlib import Path
 from typing import List
 from ..models.schemas import Vulnerability
+
+logger = logging.getLogger(__name__)
 
 class AdversaryAgent:
     def __init__(self, attack_vectors_path: Path, prompt_path: Path):
@@ -64,17 +67,17 @@ class AdversaryAgent:
         ]
 
         try:
-            print(f"🔴 Running Adversary on {target_path}...")
+            logger.info(f"Running Adversary on {target_path}...")
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
-                print(f"❌ Adversary error: {result.stderr}")
+                logger.error(f"Adversary error: {result.stderr}")
                 return []
 
             return self._parse_output(result.stdout)
             
         except Exception as e:
-            print(f"❌ Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
             return []
 
     def _parse_output(self, output: str) -> List[Vulnerability]:
@@ -88,6 +91,6 @@ class AdversaryAgent:
                     vulns.append(Vulnerability(**v))
                 return vulns
         except Exception as e:
-            print(f"❌ JSON Parse error: {e}")
+            logger.error(f"JSON Parse error: {e}")
             pass
         return []

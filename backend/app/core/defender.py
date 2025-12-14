@@ -1,8 +1,11 @@
 import json
+import logging
 import subprocess
 from pathlib import Path
 from typing import List
 from ..models.schemas import Vulnerability, FixSuggestion
+
+logger = logging.getLogger(__name__)
 
 class DefenderAgent:
     def __init__(self, prompt_path: Path):
@@ -42,17 +45,17 @@ Output as JSON:
         ]
 
         try:
-            print(f"🔵 Running Defender...")
+            logger.info("Running Defender...")
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode != 0:
-                print(f"❌ Defender error: {result.stderr}")
+                logger.error(f"Defender error: {result.stderr}")
                 return []
 
             return self._parse_output(result.stdout)
             
         except Exception as e:
-            print(f"❌ Execution failed: {e}")
+            logger.error(f"Execution failed: {e}")
             return []
 
     def _parse_output(self, output: str) -> List[FixSuggestion]:
