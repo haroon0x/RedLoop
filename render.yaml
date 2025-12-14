@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: redloop-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ALLOWED_ORIGINS
+        value: https://redloop.vercel.app
+      - key: KESTRA_URL
+        fromService:
+          name: redloop-kestra
+          type: web
+          property: hostport
+      - key: GEMINI_API_KEY
+        sync: false 
+
+  - type: web
+    name: redloop-kestra
+    runtime: docker
+    dockerfilePath: ./kestra/Dockerfile
+    dockerContext: ./kestra
+    plan: free
+    healthCheckPath: /api/v1/configs
+    envVars:
+      - key: KESTRA_CONFIGURATION_PATH
+        value: /app/confs/application.yaml
+      - key: KESTRA_SERVER_PREVIEW_ENABLED
+        value: "true"
+      - key: SECRET_GEMINI_API_KEY
+        sync: false # Set manually in Render dashboard
+
+  - type: pserv
+    name: redloop-kestra-storage
+    runtime: docker
+    disk:
+      name: kestra-data
+      mountPath: /app/storage
+      sizeGB: 1
