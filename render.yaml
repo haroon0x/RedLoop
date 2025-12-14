@@ -2,8 +2,8 @@ services:
   - type: web
     name: redloop-backend
     runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: backend/Dockerfile
+    rootDir: backend
     plan: free
     healthCheckPath: /api/health
     envVars:
@@ -24,8 +24,8 @@ services:
   - type: web
     name: redloop-kestra
     runtime: docker
-    dockerfilePath: ./kestra/Dockerfile
-    dockerContext: ./kestra
+    dockerfilePath: kestra/Dockerfile
+    rootDir: kestra
     plan: free
     healthCheckPath: /api/v1/configs
     envVars:
@@ -34,7 +34,7 @@ services:
       - key: KESTRA_SERVER_PREVIEW_ENABLED
         value: "true"
       - key: SECRET_GEMINI_API_KEY
-        sync: false # Set manually in Render dashboard
+        sync: false 
 
   - type: pserv
     name: redloop-kestra-storage
