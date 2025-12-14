@@ -1,8 +1,3 @@
-
-# Production Docker Compose for Render
-# Deploy backend and Kestra together
-# Frontend is deployed separately on Vercel
-
 services:
   kestra:
     image: kestra/kestra:latest
@@ -12,24 +7,24 @@ services:
     ports:
       - "8080:8080"
       - "8081:8081"
+    env_file:
+      - .env_encoded
     environment:
       - KESTRA_CONFIGURATION_PATH=/app/confs/application.yaml
       - KESTRA_SERVER_PREVIEW_ENABLED=true
-      # Secrets passed via Render environment variables
-      - SECRET_GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - kestra-data:/app/storage
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/kestra-wd:/tmp/kestra-wd
       - ./kestra/application.yaml:/app/confs/application.yaml:ro
       - ./kestra/flows:/app/flows:ro
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-sf", "http://localhost:8080/api/v1/configs" ]
-      interval: 30s
+      interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 60s
+      retries: 10
+      start_period: 30s
 
   backend:
     build:
@@ -42,26 +37,39 @@ services:
       - PYTHONUNBUFFERED=1
       - KESTRA_URL=http://kestra:8080
       - LOG_LEVEL=INFO
-      # Production CORS - set your Vercel frontend URL
-      # For local testing, localhost:3000 is included by default
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,https://redloop.vercel.app}
     volumes:
+      - ./backend/app:/app/app:ro
       - ./prompts:/app/prompts:ro
     depends_on:
       kestra:
         condition: service_healthy
-    restart: always
+    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: redloop-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_KESTRA_URL=http://localhost:8080
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   kestra-data:
-    driver: local
+
 
 networks:
   default:
-    name: redloop-prod-network
+    name: redloop-network
